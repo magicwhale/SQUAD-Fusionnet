@@ -271,16 +271,17 @@ class Model():
                 if globalStep % self.FLAGS.eval_every == 0:
                     devLoss = self.getDevLoss(session, contextDev, qDev, spansDev)
                     
+                    print("adding summary")
                     summary = tf.Summary()
                     summary.value.add(tag="dev/loss", simple_value=devLoss)
                     summaryWriter.add_summary(summary, globalStep)
                     
-                    trainF1 = self.checkF1(session, contextTrain, qTrain, spansTrain, "train", samples=1000)
+                    trainF1 = self.checkF1(session, contextTrain, qTrain, spansTrain)
                     summary = tf.Summary()
                     summary.value.add(tag="train/F1", simple_value=trainF1)
                     summaryWriter.add_summary(summary, globalStep)
                     
-                    devF1 = self.checkF1(session, contextDev, qDev, spansDev, "dev", samples=0)
+                    devF1 = self.checkF1(session, contextDev, qDev, spansDev, numSamples=0)
                     summary = tf.Summary()
                     summary.value.add(tag="dev/F1", simple_value=devF1)
                     summaryWriter.add_summary(summary, globalStep)
