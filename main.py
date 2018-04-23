@@ -117,7 +117,7 @@ def main(argv):
 
         with tf.Session() as sess:
             loadModel(sess, model, FLAGS.train_dir, modelExpected=False)
-            model.train(sess, trainContexts, trainQuestions, trainSpans, devQuestions, devContexts, devSpans) 
+            model.train(sess, trainContexts, trainQuestions, trainSpans, devContexts, devQuestions, devSpans) 
 
 
     elif FLAGS.mode == "show_examples":

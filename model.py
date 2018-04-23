@@ -246,6 +246,14 @@ class Model():
             
 
     def train(self, session, contextTrain, qTrain, spansTrain, contextDev, qDev, spansDev):
+        # for batch in generateBatches(self.wordToId, contextTrain, qTrain, spansTrain, self.FLAGS.batch_size):
+        #     inputFeed = {}
+        #     inputFeed[self.contextIds] = batch.contextIds
+        #     inputFeed[self.contextMask] = batch.contextMask
+        #     inputFeed[self.qIds] = batch.qIds
+        #     inputFeed[self.qMask] = batch.qMask
+        #     inputFeed[self.aSpans] = batch.aSpans
+        #     print(session.run([tf.shape(self.endLogits), tf.shape(self.startLogits), self.aSpans], inputFeed))
         epoch = 0
 
         checkpointPath = os.path.join(self.FLAGS.train_dir, "qa.ckpt")
