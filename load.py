@@ -3,6 +3,7 @@
 import os
 import json
 import nltk
+from nltk.tokenize.moses import MosesDetokenizer
 import pickle
 from random import shuffle
 from pprint import pprint
@@ -100,16 +101,30 @@ def extractCtxtQn(data):
 
 
 
-
-
                 
-def findAnswers(session, myModel, wordToId, contexts, questions):
+def findAnswers(session, myModel, wordToId, quesIdSet, contexts, questions):
 
     idToAns = {}  
     b = 0; # batch index  
-    batches = generateBatches(wordToId, contexts, questions, spans, myModel.FLAGS.batch_size)
+    detokenizer = MosesDetokenizer()
+
+    batches = generateBatches2(wordToId, contexts, questions, myModel.FLAGS.batch_size)
 
     for batch in batches:
+        startBatch, endBatch = myModel.getSpans(session, batch)
+        startBatch = startBatch.tolist()
+        endBatch = endBatch.tolist()
+
+        for e, (start, end) in enumerate(zip(startBatch, endBatch)):
+            contextTokens = batch.contextTokens[e]
+            answerTokens = contextTokens[start:end+1]
+
+            # TODO: detokenize and add to dict
+            uniqueId = batch.uuids[e]
+            quesIdSet[uniqueId] = detokenizer.detokenize(answerTokens, return_str=True)
+        b += 1
+
+    return idToAns
 
     
 

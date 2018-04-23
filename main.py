@@ -2,6 +2,9 @@ import tensorflow as tf
 import pickle
 import os
 from load import loadGlove
+from load import extractCtxtQn
+from load import loadJsonData
+from load import findAnswers
 from batch import batch, generateBatches
 from model import Model
 
@@ -53,8 +56,24 @@ def loadDataFiles(dataDir, dataName):
         spans = pickle.load(spanFile)
         return contexts, questions, answers, spans
 
+def loadModel(session, myModel, checkpointDir, modelExpected):
+    print("loadModel called")
+    checkpoint = tf.train.get_checkpoint_state(checkpointDir)
+
+    # load checkpoint if it exists
+    if checkpoint:
+        model.saver.restore(session, checkpoint.model_checkpoint_path)
+    else:
+        if model_expected:
+            raise Exception("No checkpoints in %s" % checkpointDir)
+        else:
+            session.run(tf.global_variables_intializer())
+
+
+
 def main(argv):
-    contexts, questions, answers, spans = loadDataFiles('data', 'training')
+    trainContexts, trainQuestions, trainAnswers, trainSpans = loadDataFiles('data', 'training')
+    devContexts, devQuestions, devAnswers, devSpans = loadDataFiles('data', 'dev')
     wordToId, idToWord, embMat = loadGlove("data/glove.6b", 300)
     # model = Model(FLAGS, wordToId, idToWord, embMat)
     # print(wordToId)
@@ -62,6 +81,51 @@ def main(argv):
     # if FLAGS.mode == "train":
     #     with tf.Session() as sess:
     # generateBatches(wordToId, contexts, questions, spans, 200)
+
+    # prepare directory for best model
+    bestDir = os.path.join(FLAGS.train_dir, "bestCheckpoint")
+    model = Model(FLAGS, idToWord, wordToId, embMat)
+
+    # GPU settings
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
+    # modes
+    if FLAGS.mode == "train":
+        # save flags
+        with open(os.path.join(FLAGS.train_dir, "flags.json"), 'w') as flag_rec:
+            json.dump(FLAGS.__flags, flag_rec)
+
+        with tf.Session() as sess:
+            loadModel(sess, model, FLAGS.train_dir, modelExpected=False)
+            model.train(sess, trainContexts, trainQuestions, trainAnswers, devQuestions, devContexts, devAnswers) 
+
+
+    # elif FLAGS.mode == "show_examples":
+    #     with tf.Session() as sess:
+    #         loadModel(sess, model, FLAGS.train_dir, modelExpected=True)
+    #         # TODO: F1 scores
+
+
+    elif FLAGS.mode == "official_eval":
+        if FLAGS.json_in_path == "":
+            raise Exception("Need to specify json data path")
+        if FLAGS.ckpt_load_dir == "":
+            raise Exception("Need to specify checkpoint directory")
+
+        data = loadJsonData(FLAGS.json_in_path)
+        quesIdSet, contexts, questions = extractCtxtQn(data)
+
+        with tf.Session as sess:
+            loadModel(sess, model, FLAGS.ckpt_load_dir, modelExpected=True)
+            answers = findAnswers(sess, model, wordToId, quesIdSet, contexts, questions)
+            with io.open(FLAGS.json_out_path, 'w', encoding='utf-8') as out:
+                out.write(unicode(json.dumps(answers, ensure_ascii=False)))    
+
+    else:
+        raise Exception("Given mode does not exist")
+
+            
 
 if __name__ == "__main__":
     tf.app.run()
