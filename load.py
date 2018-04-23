@@ -66,6 +66,54 @@ def loadData(inFile, dataName, outDir):
         pickle.dump(answerList, answerFile)
         pickle.dump(spanList, spanFile)
 
+
+def loadJsonData(jsonFile):
+    with open(jsonFile) as dataFile:
+        data = json.load(dataFile)
+        return data
+
+
+def extractCtxtQn(data):
+    quesIdSet = []
+    ctxtTokenSet = []
+    quesTokenSet = []
+
+    numEssays = len(data['data'])
+
+    for essayIdx in range(numEssays):
+        essayCtxts = data['data'][essayIdx]['paragraphs']
+        for paraIdx in range(len(essayCtxts)):
+            context = unicode(essayCtxts[paraIdx]['context'])
+            ctxtTokens = tokenize(context)
+            questions = essayCtxts[paraIdx]['qas']
+
+            for q in questions:
+                quesId = q['id']
+                ques = unicode(q['question'])
+                quesTokens = tokenize(ques)
+
+                quesIdSet.append(quesId)
+                ctxtTokenSet.append(ctxtTokens)
+                quesTokenSet.append(quesTokens)
+
+    return quesIdSet, ctxtTokenSet, quesTokenSet
+
+
+
+
+
+                
+def findAnswers(session, myModel, wordToId, contexts, questions):
+
+    idToAns = {}  
+    b = 0; # batch index  
+    batches = generateBatches(wordToId, contexts, questions, spans, myModel.FLAGS.batch_size)
+
+    for batch in batches:
+
+    
+
+
 def loadGlove(gloveDir, gloveDim):
     wordToId = {}
     idToWord = {}
