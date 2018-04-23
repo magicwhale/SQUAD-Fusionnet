@@ -121,7 +121,7 @@ def loadGlove(gloveDir, gloveDim):
         currId += 1
 
 
-    with open(os.path.join(gloveDir, 'glove.6b.' + str(gloveDim) + 'd.txt'), 'r') as fp:
+    with open(os.path.join(gloveDir, 'glove.6B.' + str(gloveDim) + 'd.txt'), 'r') as fp:
         for line in fp:
             tokens = line.split()
             word = tokens.pop(0)
