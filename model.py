@@ -3,6 +3,7 @@ from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.ops import embedding_ops
 from graphComponents import *
 from batch import *
+from evaluate import f1_score
 
 class Model():
 
@@ -167,9 +168,76 @@ class Model():
         summaryWriter.add_summary(summaries, globalStep)
         return loss, globalStep, paramNorm, gradientNorm
 
+    def getProbs(self, session, batch):
+        inputFeed = {}
+        inputFeed[self.contextIds] = batch.contextIds
+        inputFeed[self.contextMask] = batch.contextMask
+        inputFeed[self.qIds] = batch.qIds
+        inputFeed[self.qMask] = batch.qMask
+        
+        outputFeed = [self.startProbs, self.endProbs]
+        [startProbs, endProbs] = session.run(outputFeed, inputFeed)
+        return startProbs, endProbs
+    
+    def getSpans(self, session, batch):
+        startProbs, endProbs = self.getProbs(session, batch)
+        starts = np.argmax(startProbs, axis=1)
+        ends = np.argmax(endProbs, axis=1)
+        return starts, ends
+      
+    def checkF1(self, session, contexts, questions, answers, numSamples=100):
+        numExamples = 0
+        f1Sum = 0
+        for batch in generateBatches(self.wordToId, contexts, questions, answers, self.FLAGS.batch_size):
+
+            starts, ends = self.getSpans(session, batch)
+            starts = starts.tolist()
+            ends = ends.tolist()
+
+            for i, (start, end, aTokens, cTokens) in enumerate(zip(starts, ends, batch.aTokens, batch.contextTokens)):
+                predAnsTokens = cTokens[start : end + 1]
+                predAns = " ".join(predAnsTokens)
+
+                expAns = " ".join(aTokens)
+
+                f1 = f1_score(predAns, expAns)
+                f1Sum += f1
+
+                if numSamples != 0 and not numExamples < numSamples:
+                    break
+
+                numExamples += 1
+
+            if numSamples != 0 and not numExamples < numSamples:
+                break
+                
+        return f1Sum / numExamples
+
+      
+    def getDevLoss(self, session, contextDev, questionDev, spansDev):
+        batchLoss = []
+        batchLengths = []
+        
+        for batch in generateBatches(self.wordToId, contextDev, questionDev, spansDev, self.FLAGS.batch_size):
+            loss = self.getLoss(session, batch)  
+            batchSize = batch.batchSize
+            batchLoss.append(loss * batchSize)
+            batchLengths.append(batchSize)
+            
+        numExamples = float(sum(batchLengths))
+        devLoss = sum(batchLoss) / numExamples
+        
+        return devLoss
+            
 
     def train(self, session, contextTrain, qTrain, spansTrain, contextVal, qVal, spansVal):
         epoch = 0
+
+        checkpointPath = os.path.join(self.FLAGS.train_dir, "qa.ckpt")
+        bestmodelDir = os.path.join(self.FLAGS.train_dir, "best_checkpoint")
+        bestmodelCkptPath = os.path.join(bestmodelDir, "qa_best.ckpt")
+        bestF1 = None
+
         summaryWriter = tf.summary.FileWriter(self.FLAGS.train_dir, session.graph)
 
         while self.FLAGS.num_epochs == 0 or epoch < self.FLAGS.num_epochs:
@@ -178,3 +246,24 @@ class Model():
             for batch in generateBatches(self.wordToId, contextTrain, qTrain, spansTrain, self.FLAGS.batch_size):
                 print("training batch")
                 loss, globalStep, paramNorm, gradientNorm = self.trainStep(session, batch, summaryWriter)
+
+                if globalStep % self.FLAGS.save_every == 0:
+                    logging.info("Saving to %s..." % checkpointPath)
+                    self.saver.save(session, checkpointPath, global_step=globalStep)
+                
+                if globalStep % self.FLAGS.eval_every == 0:
+                    devLoss = self.getDevLoss(session, contextDev, questionDev, spansDev)
+                    
+                    summary = tf.Summary()
+                    summary.value.add("dev/loss", devLoss)
+                    summaryWriter.add_summary(summary, globalStep)
+                    
+                    trainF1 = self.checkF1(session, contextTrain, questionTrain, spansTrain, "train", samples=1000)
+                    summary = tf.Summary()
+                    summary.value.add("train/F1", trainF1)
+                    summaryWriter.add_summary(summary, globalStep)
+                    
+                    devF1 = self.checkF1(session, contextDev, questionDev, answerDev, "dev", samples=0)
+                    summary = tf.Summary()
+                    summary.value.add("dev/F1", devF1)
+                    summaryWriter.add_summary(summary, globalStep)

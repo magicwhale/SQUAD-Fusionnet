@@ -12,6 +12,7 @@ class batch():
         self.qTokens = qTokens
         self.aSpans = aSpans
         self.aTokens = aTokens
+        self.batchSize = len(self.contextTokens)
 
 def tokensToIds(wordToId, tokens):
     unkId = wordToId[UNK_TOK]
