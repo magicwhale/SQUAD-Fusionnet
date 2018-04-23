@@ -61,7 +61,8 @@ def main(argv):
     # print(wordToId)
     # print(answers)
     # if FLAGS.mode == "train":
-    #     with tf.Session() as sess:
+    with tf.Session() as sess:
+        
     # generateBatches(wordToId, contexts, questions, spans, 200)
 
 if __name__ == "__main__":
