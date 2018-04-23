@@ -1,12 +1,15 @@
 import tensorflow as tf
 import pickle
 import os
+import json
+import logging
 from load import loadGlove
 from batch import batch, generateBatches
 from model import Model
 
-MAIN_DIR = os.path.relpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # relative path of the main directory
+MAIN_DIR = os.path.relpath(os.path.dirname(os.path.abspath(__file__)))# relative path of the main directory
 DEFAULT_DATA_DIR = os.path.join(MAIN_DIR, "data") # relative path of data dir
+EXPERIMENTS_DIR = os.path.join(MAIN_DIR, "experiments") # relative path of experiments dir
 
 # High-level options
 tf.app.flags.DEFINE_integer("gpu", 0, "Which GPU to use, if you have multiple.")
@@ -54,16 +57,92 @@ def loadDataFiles(dataDir, dataName):
         spans = pickle.load(spanFile)
         return contexts, questions, answers, spans
 
+      
+def loadModel(session, myModel, checkpointDir, modelExpected):
+    checkpoint = tf.train.get_checkpoint_state(checkpointDir)
+
+    # load checkpoint if it exists
+    if checkpoint:
+        model.saver.restore(session, checkpoint.model_checkpoint_path)
+    else:
+        if modelExpected:
+            raise Exception("No checkpoints in %s" % checkpointDir)
+        else:
+            session.run(tf.global_variables_initializer())
+      
+      
 def main(argv):
-    contexts, questions, answers, spans = loadDataFiles('data', 'training')
+    if not FLAGS.experiment_name and not FLAGS.train_dir and FLAGS.mode != "official_eval":
+        raise Exception("You need to specify either --experiment_name or --train_dir")
+    FLAGS.train_dir = FLAGS.train_dir or os.path.join(EXPERIMENTS_DIR, FLAGS.experiment_name)
+
+    print("loading train data")
+    trainContexts, trainQuestions, trainAnswers, trainSpans = loadDataFiles('data', 'training')
+    print("loading dev data")
+    devContexts, devQuestions, devAnswers, devSpans = loadDataFiles('data', 'dev')
+    print("loading glove data")
     wordToId, idToWord, embMat = loadGlove("data/glove.6b", 300)
     # model = Model(FLAGS, wordToId, idToWord, embMat)
     # print(wordToId)
     # print(answers)
     # if FLAGS.mode == "train":
-    with tf.Session() as sess:
-        
+    #     with tf.Session() as sess:
     # generateBatches(wordToId, contexts, questions, spans, 200)
+
+    # prepare directory for best model
+    bestDir = os.path.join(FLAGS.train_dir, "bestCheckpoint")
+    model = Model(FLAGS, wordToId, idToWord, embMat)
+
+    # GPU settings
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
+    # modes
+    if FLAGS.mode == "train":
+
+        # Setup train dir and logfile
+        if not os.path.exists(FLAGS.train_dir):
+            os.makedirs(FLAGS.train_dir)
+        file_handler = logging.FileHandler(os.path.join(FLAGS.train_dir, "log.txt"))
+        logging.getLogger().addHandler(file_handler)
+
+        # save flags
+        with open(os.path.join(FLAGS.train_dir, "flags.json"), 'w') as flag_rec:
+            # json.dump(FLAGS.__flags, flag_rec)
+            flag_rec.write(str(FLAGS.__dict__['__wrapped']))
+
+        # Make bestmodel dir if necessary
+        if not os.path.exists(bestDir):
+            os.makedirs(bestDir)
+
+        with tf.Session() as sess:
+            loadModel(sess, model, FLAGS.train_dir, modelExpected=False)
+            model.train(sess, trainContexts, trainQuestions, trainSpans, devQuestions, devContexts, devSpans) 
+
+
+    elif FLAGS.mode == "show_examples":
+        with tf.Session() as sess:
+            loadModel(sess, model, FLAGS.train_dir, modelExpected=True)
+            # TODO: F1 scores
+
+
+    elif FLAGS.mode == "official_eval":
+        # if FLAGS.json_in_path == "":
+        #     raise Exception("Need to specify json data path")
+        # if FLAGS.ckpt_load_dir == "":
+        #     raise Exception("Need to specify checkpoint directory")
+
+        # data = loadJsonData(FLAGS.json_in_path)
+        # quesIdSet, contexts, questions = extractCtxtQn(data)
+
+        # with tf.Session as sess:
+        #     loadModel(sess, model, FLAGS.ckpt_load_dir, modelExpected=True)
+        #     answers = findAnswers(sess, model, wordToId, contexts, questions)
+        pass
+    else:
+        raise Exception("Given mode does not exist")
+
+            
 
 if __name__ == "__main__":
     tf.app.run()

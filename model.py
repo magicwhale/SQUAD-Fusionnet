@@ -1,4 +1,5 @@
 import tensorflow as tf
+import os
 from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.ops import embedding_ops
 from graphComponents import *
@@ -91,7 +92,6 @@ class Model():
         selfBoostedFusion = fusion(selfBoostedHOW, selfBoostedHOW, cqFusedRep, self.FLAGS.fusion_size, self.keepProb, "selfBoostedFusion")
         cUnderstanding = biLSTM(tf.concat([cqFusedRep, selfBoostedFusion], axis=-1),
             self.FLAGS.hidden_size, self.keepProb, "finalContext", mask=self.contextMask)
-        print(cUnderstanding)
         # Get summarized question
         # with tf.variable_scope("questionSummary"):
         #   W = tf.get_variable("W", shape=(qUnderstanding.get_shape()[-1], 1), dtype=tf.float32)
@@ -129,7 +129,6 @@ class Model():
             out = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU", mask=self.contextMask)
             # vQT = tf.reshape(out, [-1, tf.shape(out)[-2], tf.shape(out)[-1], 1])
             # vQT = tf.transpose(tf.expand_dims(out, -1), perm=[0, 1, 3, 2]) #shape: [batchSize, contextLen, 1, 400]
-            print(out)
             d = cUnderstanding.get_shape()[-1]
             W = tf.get_variable("W", shape=(d, d), dtype=tf.float32)
 
@@ -210,7 +209,7 @@ class Model():
 
             if numSamples != 0 and not numExamples < numSamples:
                 break
-                
+
         return f1Sum / numExamples
 
       
@@ -242,10 +241,12 @@ class Model():
 
         while self.FLAGS.num_epochs == 0 or epoch < self.FLAGS.num_epochs:
             epoch += 1
-
+            batchNum = 0
+            print("epoch " + str(epoch))
             for batch in generateBatches(self.wordToId, contextTrain, qTrain, spansTrain, self.FLAGS.batch_size):
-                print("training batch")
+
                 loss, globalStep, paramNorm, gradientNorm = self.trainStep(session, batch, summaryWriter)
+                print("step " + str(globalStep))
 
                 if globalStep % self.FLAGS.save_every == 0:
                     logging.info("Saving to %s..." % checkpointPath)

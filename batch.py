@@ -55,7 +55,9 @@ def generateBatches(wordToId, contexts, questions, spans, batchSize):
             qTokens.append(question)
             qIds.append(tokensToIds(wordToId, question))
 
-            aTokens.append(context[span[0]:span[1] + 1])
+            # print(context)
+            # print(span)
+            aTokens.append(context[span[0] : span[1] + 1])
             aSpans.append(span)
 
         #pad and get masks
