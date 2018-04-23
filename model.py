@@ -1,5 +1,6 @@
 import tensorflow as tf
 import os
+import logging
 from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.ops import embedding_ops
 from graphComponents import *
@@ -31,6 +32,8 @@ class Model():
         opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
         self.updates = opt.apply_gradients(zip(clippedGradients, params), global_step=self.globalStep)
 
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.keep)
+        self.bestSaver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
         self.summaries = tf.summary.merge_all()
 
     def initPlaceholders(self):
@@ -184,6 +187,19 @@ class Model():
         ends = np.argmax(endProbs, axis=1)
         return starts, ends
       
+    def getLoss(self, session, batch):
+        inputFeed = {}
+        inputFeed[self.contextIds] = batch.contextIds
+        inputFeed[self.contextMask] = batch.contextMask
+        inputFeed[self.qIds] = batch.qIds
+        inputFeed[self.qMask] = batch.qMask
+        inputFeed[self.aSpans] = batch.aSpans
+
+        outputFeed = [self.loss]
+        [loss] = session.run(outputFeed, inputFeed)
+
+        return loss
+        
     def checkF1(self, session, contexts, questions, answers, numSamples=100):
         numExamples = 0
         f1Sum = 0
@@ -229,7 +245,7 @@ class Model():
         return devLoss
             
 
-    def train(self, session, contextTrain, qTrain, spansTrain, contextVal, qVal, spansVal):
+    def train(self, session, contextTrain, qTrain, spansTrain, contextDev, qDev, spansDev):
         epoch = 0
 
         checkpointPath = os.path.join(self.FLAGS.train_dir, "qa.ckpt")
@@ -253,18 +269,23 @@ class Model():
                     self.saver.save(session, checkpointPath, global_step=globalStep)
                 
                 if globalStep % self.FLAGS.eval_every == 0:
-                    devLoss = self.getDevLoss(session, contextDev, questionDev, spansDev)
+                    devLoss = self.getDevLoss(session, contextDev, qDev, spansDev)
                     
                     summary = tf.Summary()
                     summary.value.add("dev/loss", devLoss)
                     summaryWriter.add_summary(summary, globalStep)
                     
-                    trainF1 = self.checkF1(session, contextTrain, questionTrain, spansTrain, "train", samples=1000)
+                    trainF1 = self.checkF1(session, contextTrain, qTrain, spansTrain, "train", samples=1000)
                     summary = tf.Summary()
                     summary.value.add("train/F1", trainF1)
                     summaryWriter.add_summary(summary, globalStep)
                     
-                    devF1 = self.checkF1(session, contextDev, questionDev, answerDev, "dev", samples=0)
+                    devF1 = self.checkF1(session, contextDev, qDev, spansDev, "dev", samples=0)
                     summary = tf.Summary()
                     summary.value.add("dev/F1", devF1)
                     summaryWriter.add_summary(summary, globalStep)
+
+                    if bestF1 is None or devF1 > bestF1:
+                        bestF1 = devF1
+                        self.bestmodel_saver.save(session, bestmodelCkptPath, global_step=globalStep)
+

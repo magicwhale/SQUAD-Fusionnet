@@ -30,8 +30,8 @@ tf.app.flags.DEFINE_integer("fusion_size", 250, "Size of hidden fusion layer")
 
 # How often to print, save, eval
 tf.app.flags.DEFINE_integer("print_every", 1, "How many iterations to do per print.")
-tf.app.flags.DEFINE_integer("save_every", 500, "How many iterations to do per save.")
-tf.app.flags.DEFINE_integer("eval_every", 500, "How many iterations to do per calculating loss/f1/em on dev set. Warning: this is fairly time-consuming so don't do it too often.")
+tf.app.flags.DEFINE_integer("save_every", 1, "How many iterations to do per save.")
+tf.app.flags.DEFINE_integer("eval_every", 1, "How many iterations to do per calculating loss/f1/em on dev set. Warning: this is fairly time-consuming so don't do it too often.")
 tf.app.flags.DEFINE_integer("keep", 1, "How many checkpoints to keep. 0 indicates keep all (you shouldn't need to do keep all though - it's very storage intensive).")
 
 # Reading and saving data
@@ -58,7 +58,7 @@ def loadDataFiles(dataDir, dataName):
         return contexts, questions, answers, spans
 
       
-def loadModel(session, myModel, checkpointDir, modelExpected):
+def loadModel(session, model, checkpointDir, modelExpected):
     checkpoint = tf.train.get_checkpoint_state(checkpointDir)
 
     # load checkpoint if it exists
@@ -90,7 +90,7 @@ def main(argv):
     # generateBatches(wordToId, contexts, questions, spans, 200)
 
     # prepare directory for best model
-    bestDir = os.path.join(FLAGS.train_dir, "bestCheckpoint")
+    bestDir = os.path.join(FLAGS.train_dir, "best_checkpoint")
     model = Model(FLAGS, wordToId, idToWord, embMat)
 
     # GPU settings
