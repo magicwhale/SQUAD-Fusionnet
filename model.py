@@ -199,7 +199,7 @@ class Model():
         [loss] = session.run(outputFeed, inputFeed)
 
         return loss
-        
+
     def checkF1(self, session, contexts, questions, answers, numSamples=100):
         numExamples = 0
         f1Sum = 0
@@ -272,17 +272,17 @@ class Model():
                     devLoss = self.getDevLoss(session, contextDev, qDev, spansDev)
                     
                     summary = tf.Summary()
-                    summary.value.add("dev/loss", devLoss)
+                    summary.value.add(tag="dev/loss", simple_value=devLoss)
                     summaryWriter.add_summary(summary, globalStep)
                     
                     trainF1 = self.checkF1(session, contextTrain, qTrain, spansTrain, "train", samples=1000)
                     summary = tf.Summary()
-                    summary.value.add("train/F1", trainF1)
+                    summary.value.add(tag="train/F1", simple_value=trainF1)
                     summaryWriter.add_summary(summary, globalStep)
                     
                     devF1 = self.checkF1(session, contextDev, qDev, spansDev, "dev", samples=0)
                     summary = tf.Summary()
-                    summary.value.add("dev/F1", devF1)
+                    summary.value.add(tag="dev/F1", simple_value=devF1)
                     summaryWriter.add_summary(summary, globalStep)
 
                     if bestF1 is None or devF1 > bestF1:
