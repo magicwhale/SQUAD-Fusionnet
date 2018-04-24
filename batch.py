@@ -1,9 +1,11 @@
 from random import shuffle
 import numpy as np
-from load import UNK_TOK, PAD_TOK
+
+PAD_TOK = b"<pad>"
+UNK_TOK = b"<unk>"
 
 class batch():
-    def __init__(self, contextIds, contextMask, contextTokens, qIds, qMask, qTokens, aSpans, aTokens):
+    def __init__(self, contextIds, contextMask, contextTokens, qIds, qMask, qTokens, aSpans, aTokens, uuids=None):
         self.contextIds = contextIds
         self.contextMask = contextMask
         self.contextTokens = contextTokens
@@ -12,15 +14,17 @@ class batch():
         self.qTokens = qTokens
         self.aSpans = aSpans
         self.aTokens = aTokens
+        self.uuids = uuids
+        self.batchSize = len(self.contextTokens)
 
-    def __init__(self, contextIds, contextMask, contextTokens, qIds, qMask, qTokens, aTokens):
-        self.contextIds = contextIds
-        self.contextMask = contextMask
-        self.contextTokens = contextTokens
-        self.qIds = qIds
-        self.qMask = qMask
-        self.qTokens = qTokens
-        self.aTokens = aTokens
+    # def __init__(self, contextIds, contextMask, contextTokens, qIds, qMask, qTokens, aTokens):
+    #     self.contextIds = contextIds
+    #     self.contextMask = contextMask
+    #     self.contextTokens = contextTokens
+    #     self.qIds = qIds
+    #     self.qMask = qMask
+    #     self.qTokens = qTokens
+    #     self.aTokens = aTokens
 
 
 def tokensToIds(wordToId, tokens):
@@ -64,7 +68,9 @@ def generateBatches(wordToId, contexts, questions, spans, batchSize):
             qTokens.append(question)
             qIds.append(tokensToIds(wordToId, question))
 
-            aTokens.append(context[span[0]:span[1] + 1])
+            # print(context)
+            # print(span)
+            aTokens.append(context[span[0] : span[1] + 1])
             aSpans.append(span)
 
         #pad and get masks
@@ -83,7 +89,7 @@ def generateBatches(wordToId, contexts, questions, spans, batchSize):
     return batches
 
 # This is the same as generateBatches but with no references to span
-def generateBatches2(wordToId, contexts, questions, batchSize):
+def generateBatches2(wordToId, uuids, contexts, questions, batchSize):
     batches = []
     shuffledIndices = np.arange(len(contexts))
     np.random.shuffle(shuffledIndices)
@@ -93,11 +99,14 @@ def generateBatches2(wordToId, contexts, questions, batchSize):
         contextIds = []
         qTokens = []
         qIds = []
+        aTokens = []
+        batchUuids = []
 
         for n in range(batchStart, min(batchStart + batchSize, len(shuffledIndices))):
             i = shuffledIndices[n]
             context = contexts[i]
             question = questions[i]
+            uuid = uuids[i]
 
             #Get ids from words
             contextTokens.append(context)
@@ -105,6 +114,8 @@ def generateBatches2(wordToId, contexts, questions, batchSize):
 
             qTokens.append(question)
             qIds.append(tokensToIds(wordToId, question))
+
+            batchUuids.append(uuid)
 
         #pad and get masks
         padId = wordToId[PAD_TOK]
@@ -116,7 +127,7 @@ def generateBatches2(wordToId, contexts, questions, batchSize):
         qIds = np.array(qIds)
         # aSpans = np.array(aSpans)
 
-        newBatch = batch(contextIds, contextMask, contextTokens, qIds, qMask, qTokens, aTokens)
+        newBatch = batch(contextIds, contextMask, contextTokens, qIds, qMask, qTokens, None, aTokens, uuids=batchUuids)
         batches.append(newBatch)
 
     return batches

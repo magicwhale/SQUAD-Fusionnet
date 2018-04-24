@@ -8,9 +8,10 @@ import pickle
 from random import shuffle
 from pprint import pprint
 import numpy as np
+from batch import generateBatches2
+from batch import UNK_TOK, PAD_TOK
 
-PAD_TOK = b"<pad>"
-UNK_TOK = b"<unk>"
+
 SPECIAL_TOKS = [PAD_TOK, UNK_TOK]
 
 def tokenize(string):
@@ -84,13 +85,13 @@ def extractCtxtQn(data):
     for essayIdx in range(numEssays):
         essayCtxts = data['data'][essayIdx]['paragraphs']
         for paraIdx in range(len(essayCtxts)):
-            context = unicode(essayCtxts[paraIdx]['context'])
+            context = str(essayCtxts[paraIdx]['context'])
             ctxtTokens = tokenize(context)
             questions = essayCtxts[paraIdx]['qas']
 
             for q in questions:
                 quesId = q['id']
-                ques = unicode(q['question'])
+                ques = str(q['question'])
                 quesTokens = tokenize(ques)
 
                 quesIdSet.append(quesId)
@@ -99,8 +100,6 @@ def extractCtxtQn(data):
 
     return quesIdSet, ctxtTokenSet, quesTokenSet
 
-
-
                 
 def findAnswers(session, myModel, wordToId, quesIdSet, contexts, questions):
 
@@ -108,7 +107,7 @@ def findAnswers(session, myModel, wordToId, quesIdSet, contexts, questions):
     b = 0; # batch index  
     detokenizer = MosesDetokenizer()
 
-    batches = generateBatches2(wordToId, contexts, questions, myModel.FLAGS.batch_size)
+    batches = generateBatches2(wordToId, quesIdSet, contexts, questions, myModel.FLAGS.batch_size)
 
     for batch in batches:
         startBatch, endBatch = myModel.getSpans(session, batch)
@@ -119,14 +118,11 @@ def findAnswers(session, myModel, wordToId, quesIdSet, contexts, questions):
             contextTokens = batch.contextTokens[e]
             answerTokens = contextTokens[start:end+1]
 
-            # TODO: detokenize and add to dict
             uniqueId = batch.uuids[e]
-            quesIdSet[uniqueId] = detokenizer.detokenize(answerTokens, return_str=True)
+            idToAns[uniqueId] = detokenizer.detokenize(answerTokens, return_str=True)
         b += 1
 
     return idToAns
-
-    
 
 
 def loadGlove(gloveDir, gloveDim):
@@ -143,7 +139,7 @@ def loadGlove(gloveDir, gloveDim):
         currId += 1
 
 
-    with open(os.path.join(gloveDir, 'glove.6b.' + str(gloveDim) + 'd.txt'), 'r') as fp:
+    with open(os.path.join(gloveDir, 'glove.6B.' + str(gloveDim) + 'd.txt'), 'r') as fp:
         for line in fp:
             tokens = line.split()
             word = tokens.pop(0)
