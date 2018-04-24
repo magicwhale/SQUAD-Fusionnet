@@ -9,6 +9,7 @@ from load import loadJsonData
 from load import findAnswers
 from batch import batch, generateBatches
 from model import Model
+from official_eval_helper import get_json_data, generate_answers
 
 MAIN_DIR = os.path.relpath(os.path.dirname(os.path.abspath(__file__)))# relative path of the main directory
 DEFAULT_DATA_DIR = os.path.join(MAIN_DIR, "data") # relative path of data dir
@@ -143,6 +144,7 @@ def main(argv):
             answers = findAnswers(sess, model, wordToId, quesIdSet, contexts, questions)
             with io.open(FLAGS.json_out_path, 'w', encoding='utf-8') as out:
                 out.write(str(json.dumps(answers, ensure_ascii=False)))  
+
     else:
         raise Exception("Given mode does not exist")
 
