@@ -1,8 +1,9 @@
-#This code is loosely based on the code
 
 import os
 import json
 import nltk
+nltk.download('perluniprops')
+nltk.download('punkt')
 from nltk.tokenize.moses import MosesDetokenizer
 import pickle
 from random import shuffle
@@ -10,7 +11,6 @@ from pprint import pprint
 import numpy as np
 from batch import generateBatches2
 from batch import UNK_TOK, PAD_TOK
-
 
 SPECIAL_TOKS = [PAD_TOK, UNK_TOK]
 

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import pickle
+import io
 import os
 import json
 import logging
