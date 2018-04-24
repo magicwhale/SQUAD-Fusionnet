@@ -4,6 +4,9 @@ import os
 import json
 import logging
 from load import loadGlove
+from load import extractCtxtQn
+from load import loadJsonData
+from load import findAnswers
 from batch import batch, generateBatches
 from model import Model
 
@@ -56,7 +59,6 @@ def loadDataFiles(dataDir, dataName):
         answers = pickle.load(answerFile)
         spans = pickle.load(spanFile)
         return contexts, questions, answers, spans
-
       
 def loadModel(session, model, checkpointDir, modelExpected):
     checkpoint = tf.train.get_checkpoint_state(checkpointDir)
@@ -72,6 +74,7 @@ def loadModel(session, model, checkpointDir, modelExpected):
       
       
 def main(argv):
+
     if not FLAGS.experiment_name and not FLAGS.train_dir and FLAGS.mode != "official_eval":
         raise Exception("You need to specify either --experiment_name or --train_dir")
     FLAGS.train_dir = FLAGS.train_dir or os.path.join(EXPERIMENTS_DIR, FLAGS.experiment_name)
@@ -90,6 +93,7 @@ def main(argv):
     # generateBatches(wordToId, contexts, questions, spans, 200)
 
     # prepare directory for best model
+
     bestDir = os.path.join(FLAGS.train_dir, "best_checkpoint")
     model = Model(FLAGS, wordToId, idToWord, embMat)
 
@@ -99,7 +103,6 @@ def main(argv):
 
     # modes
     if FLAGS.mode == "train":
-
         # Setup train dir and logfile
         if not os.path.exists(FLAGS.train_dir):
             os.makedirs(FLAGS.train_dir)
@@ -127,18 +130,19 @@ def main(argv):
 
 
     elif FLAGS.mode == "official_eval":
-        # if FLAGS.json_in_path == "":
-        #     raise Exception("Need to specify json data path")
-        # if FLAGS.ckpt_load_dir == "":
-        #     raise Exception("Need to specify checkpoint directory")
+        if FLAGS.json_in_path == "":
+            raise Exception("Need to specify json data path")
+        if FLAGS.ckpt_load_dir == "":
+            raise Exception("Need to specify checkpoint directory")
 
-        # data = loadJsonData(FLAGS.json_in_path)
-        # quesIdSet, contexts, questions = extractCtxtQn(data)
+        data = loadJsonData(FLAGS.json_in_path)
+        quesIdSet, contexts, questions = extractCtxtQn(data)
 
-        # with tf.Session as sess:
-        #     loadModel(sess, model, FLAGS.ckpt_load_dir, modelExpected=True)
-        #     answers = findAnswers(sess, model, wordToId, contexts, questions)
-        pass
+        with tf.Session() as sess:
+            loadModel(sess, model, FLAGS.ckpt_load_dir, modelExpected=True)
+            answers = findAnswers(sess, model, wordToId, quesIdSet, contexts, questions)
+            with io.open(FLAGS.json_out_path, 'w', encoding='utf-8') as out:
+                out.write(str(json.dumps(answers, ensure_ascii=False)))  
     else:
         raise Exception("Given mode does not exist")
 

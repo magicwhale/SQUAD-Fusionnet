@@ -3,13 +3,14 @@
 import os
 import json
 import nltk
+from nltk.tokenize.moses import MosesDetokenizer
 import pickle
 from random import shuffle
 from pprint import pprint
 import numpy as np
+from batch import generateBatches2
+from batch import UNK_TOK, PAD_TOK
 
-PAD_TOK = b"<pad>"
-UNK_TOK = b"<unk>"
 
 SPECIAL_TOKS = [PAD_TOK, UNK_TOK]
 
@@ -84,13 +85,13 @@ def extractCtxtQn(data):
     for essayIdx in range(numEssays):
         essayCtxts = data['data'][essayIdx]['paragraphs']
         for paraIdx in range(len(essayCtxts)):
-            context = unicode(essayCtxts[paraIdx]['context'])
+            context = str(essayCtxts[paraIdx]['context'])
             ctxtTokens = tokenize(context)
             questions = essayCtxts[paraIdx]['qas']
 
             for q in questions:
                 quesId = q['id']
-                ques = unicode(q['question'])
+                ques = str(q['question'])
                 quesTokens = tokenize(ques)
 
                 quesIdSet.append(quesId)
@@ -99,13 +100,30 @@ def extractCtxtQn(data):
 
     return quesIdSet, ctxtTokenSet, quesTokenSet
 
-def findAnswers(session, myModel, wordToId, contexts, questions):
-    pass
-    # idToAns = {}  
-    # b = 0; # batch index  
-    # batches = generateBatches(wordToId, contexts, questions, spans, myModel.FLAGS.batch_size)
+                
+def findAnswers(session, myModel, wordToId, quesIdSet, contexts, questions):
 
-    # for batch in batches:
+    idToAns = {}  
+    b = 0; # batch index  
+    detokenizer = MosesDetokenizer()
+
+    batches = generateBatches2(wordToId, quesIdSet, contexts, questions, myModel.FLAGS.batch_size)
+
+    for batch in batches:
+        startBatch, endBatch = myModel.getSpans(session, batch)
+        startBatch = startBatch.tolist()
+        endBatch = endBatch.tolist()
+
+        for e, (start, end) in enumerate(zip(startBatch, endBatch)):
+            contextTokens = batch.contextTokens[e]
+            answerTokens = contextTokens[start:end+1]
+
+            uniqueId = batch.uuids[e]
+            idToAns[uniqueId] = detokenizer.detokenize(answerTokens, return_str=True)
+        b += 1
+
+    return idToAns
+
 
 def loadGlove(gloveDir, gloveDim):
     wordToId = {}

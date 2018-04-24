@@ -298,4 +298,3 @@ class Model():
                     # if bestF1 is None or devF1 > bestF1:
                     #     bestF1 = devF1
                     #     self.bestmodel_saver.save(session, bestmodelCkptPath, global_step=globalStep)
-
