@@ -1,15 +1,19 @@
 import tensorflow as tf
 import os
+os.environ["KERAS_BACKEND"] = "theano"
+import keras as ks
 import logging
 from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.ops import embedding_ops
 from graphComponents import *
 from batch import *
 from evaluate import f1_score
+from keras.models import load_model
+# from keras import backend as K
 
 class Model():
 
-    def __init__(self, FLAGS, wordToId, idToWord, embMat):
+    def __init__(self, FLAGS, wordToId, idToWord, gloveMat):
         self.FLAGS = FLAGS
         self.wordToId = wordToId
         self.idToWord = idToWord
@@ -17,7 +21,7 @@ class Model():
         # Build everything related to the graph
         with tf.variable_scope("model", initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0, uniform=True)):
             self.initPlaceholders()
-            self.addEmbedding(embMat)
+            self.addEmbedding(gloveMat)
             self.addGraph()
             self.addLoss()
 
@@ -40,35 +44,48 @@ class Model():
         #Context, question, and answer placeholders
         # self.contextLen = tf.placeholder(tf.int32, shape=())
         # self.qLen = tf.placeholder(tf.int32, shape=())
-        self.contextIds = tf.placeholder(tf.int32, shape=[None, None])
+        self.contextIds = tf.placeholder(tf.int32, shape=[None, None, 300])
         self.contextMask = tf.placeholder(tf.int32, shape=[None, None])
-        self.qIds = tf.placeholder(tf.int32, shape=[None, None])
+        self.qIds = tf.placeholder(tf.int32, shape=[None, None, 300])
         self.qMask = tf.placeholder(tf.int32, shape=[None, None])
         self.aSpans = tf.placeholder(tf.int32, shape=[None, 2])
 
         #Dropout placeholder
         self.keepProb = tf.placeholder_with_default(1.0, shape=())
 
-    def addEmbedding(self, embMat):
+    def addEmbedding(self, gloveMat):
         with vs.variable_scope("embedding"):
-            embeddingMatrix = tf.constant(embMat, dtype=tf.float32, name="embMat")
-            self.contextEmbs = embedding_ops.embedding_lookup(embeddingMatrix, self.contextIds)
-            self.qEmbs = embedding_ops.embedding_lookup(embeddingMatrix, self.qIds)
+
+            gloveEmbMatrix = tf.constant(gloveMat, dtype=tf.float32, name="gloveMat")
+            self.contextGlove = embedding_ops.embedding_lookup(gloveEmbMatrix, self.contextIds)
+            self.qGlove = embedding_ops.embedding_lookup(gloveEmbMatrix, self.qIds)
+
+            cCoveModel = load_model('CoVe/Keras_CoVe.h5')
+            cCoveModel.inputs = self.contextGlove
+            self.contextCove = cCoveModel.outputs
+            print(self.contextCove)
+            self.qCove = self.qGlove
 
     def addGraph(self):
+
+        # Glove self attention
+        gloveSelfAtt = fusion(self.contextGlove, self.qGlove, self.qGlove, self.qGlove.get_shape()[-1], self.keepProb, "selfAttGlove")
+
+        contextInput = tf.concat([self.contextGlove, self.contextCove, gloveSelfAtt], axis=-1)
+
         # High and low level representation
-        lowLevelC = biLSTM(self.contextEmbs, self.FLAGS.hidden_size, self.keepProb, "lowLevelC",mask=self.contextMask)
+        lowLevelC = biLSTM(contextInput, self.FLAGS.hidden_size, self.keepProb, "lowLevelC",mask=self.contextMask)
         # TODO: modify so that hidden size can be different between levels
         highLevelC = biLSTM(lowLevelC, self.FLAGS.hidden_size, self.keepProb, "highLevelC", mask=self.contextMask)
-        lowLevelQ = biLSTM(self.qEmbs, self.FLAGS.hidden_size, self.keepProb, "lowLevelQ", mask=self.qMask)
+        lowLevelQ = biLSTM(self.qGlove, self.FLAGS.hidden_size, self.keepProb, "lowLevelQ", mask=self.qMask)
         highLevelQ = biLSTM(lowLevelQ, self.FLAGS.hidden_size, self.keepProb, "highLevelQ", mask=self.qMask)
 
         # Question Understanding
         qUnderstanding = biLSTM(tf.concat([lowLevelQ, highLevelQ], axis=-1), self.FLAGS.hidden_size, self.keepProb, "qUnderstanding", mask=self.qMask)
 
         # Create history of word
-        contextHOW = tf.concat([self.contextEmbs, lowLevelC, highLevelC], axis=-1)
-        qHOW = tf.concat([self.qEmbs, lowLevelQ, highLevelQ], axis=-1)
+        contextHOW = tf.concat([self.contextGlove, self.contextCove, lowLevelC, highLevelC], axis=-1)
+        qHOW = tf.concat([self.qGlove, self.qCove, lowLevelQ, highLevelQ], axis=-1)
 
         # Fully-Aware Multi-level Fusion: Higher-level
         lowLevelFusion = fusion(contextHOW, qHOW, lowLevelQ, self.FLAGS.fusion_size, self.keepProb, "lowLevelFusion")
@@ -254,6 +271,7 @@ class Model():
         #     inputFeed[self.qMask] = batch.qMask
         #     inputFeed[self.aSpans] = batch.aSpans
         #     print(session.run([tf.shape(self.endLogits), tf.shape(self.startLogits), self.aSpans], inputFeed))
+        # K.set_session(session)
         epoch = 0
 
         checkpointPath = os.path.join(self.FLAGS.train_dir, "qa.ckpt")
