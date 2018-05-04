@@ -11,8 +11,33 @@ from pprint import pprint
 import numpy as np
 from batch import generateBatches2
 from batch import UNK_TOK, PAD_TOK
+from keras.models import load_model
 
 SPECIAL_TOKS = [PAD_TOK, UNK_TOK]
+
+# def tokensToInput(tokens, gloveDict):
+#     gloveEmb = [[] for line in ]
+
+#     # COVE id 
+#     coveEmbeddings = cove_model.predict(tokens)
+
+#     # GLOVE id
+
+
+#     # POS id
+
+#     # NER id
+
+#     # TF
+
+#     # Question-context matching
+
+
+# def tokenBatchToInput(batch, gloveDict):
+#     gloveEmbs = [[gloveDict[token] for token in line] for line in batch ]
+
+#     coveModel = load_model('CoVe/Keras_CoVe.h5')
+#     coveEmbeddings = coveModel.
 
 def tokenize(string):
     return [token.replace("``", '"').replace("''", '"').lower() for token in nltk.word_tokenize(string)]
@@ -152,6 +177,48 @@ def loadGlove(gloveDir, gloveDim):
     embMatrix = np.array(embMatrix)
     return wordToId, idToWord, embMatrix
 
+def processGlove(gloveDir, gloveDim, outDir):
+    w2i, i2w, mat = loadGlove(gloveDir, gloveDim)
+
+    if not os.path.exists(outDir):
+        os.makedirs(outDir)
+
+    with open(os.path.join(outDir, 'glove.w2i'), 'wb') as w2i_file,  \
+         open(os.path.join(outDir, 'glove.i2w'), 'wb') as i2w_file,  \
+         open(os.path.join(outDir, 'glove.embMat'), 'wb') as mat_file:
+        
+        pickle.dump(w2i, w2i_file)
+        pickle.dump(i2w, i2w_file)
+        pickle.dump(mat, mat_file)
+
+# def loadGloveAndCove():
+#     wordToId = {}
+#     idToWord = {}
+#     gloveMat = []
+#     coveMat = []
+#     currId = 0
+
+#     for token in SPECIAL_TOKS:
+#         wordToId[token] = currId
+#         idToWord[currId] = token
+#         embed = [np.random.randn() for _ in range(gloveDim)]
+#         gloveMat.append(embed)
+#         currId += 1
+
+
+#     with open(os.path.join(gloveDir, 'glove.6B.' + str(gloveDim) + 'd.txt'), 'r') as fp:
+#         for line in fp:
+#             tokens = line.split()
+#             word = tokens.pop(0)
+#             wordToId[word] = currId
+#             idToWord[currId] = word
+#             embed = [float(n) for n in tokens]
+#             gloveMat.append(embed)
+#             currId += 1
+    
+#     gloveMat = np.array(gloveMat)
+#     return wordToId, idToWord, gloveMat
+    # Make Cove embedding matrix
 
     #Make data into 
 

@@ -49,6 +49,16 @@ tf.app.flags.DEFINE_string("json_out_path", "predictions.json", "Output path for
 
 FLAGS = tf.app.flags.FLAGS
 
+def loadGloveFiles(dataDir):
+    with open(os.path.join(dataDir, 'glove.w2i'), 'rb') as w2i_file,  \
+         open(os.path.join(dataDir, 'glove.i2w'), 'rb') as i2w_file,  \
+         open(os.path.join(dataDir, 'glove.embMat'), 'rb') as mat_file:
+
+        wordToId = pickle.load(w2i_file)
+        idToWord = pickle.load(i2w_file)
+        gloveMat = pickle.load(mat_file)
+        return wordToId, idToWord, gloveMat
+
 def loadDataFiles(dataDir, dataName):
     with open(os.path.join(dataDir, dataName +'.context'), 'rb') as contextFile,  \
          open(os.path.join(dataDir, dataName +'.question'), 'rb') as questionFile,  \
@@ -85,7 +95,7 @@ def main(argv):
     print("loading dev data")
     devContexts, devQuestions, devAnswers, devSpans = loadDataFiles('data', 'dev')
     print("loading glove data")
-    wordToId, idToWord, embMat = loadGlove(DEFAULT_DATA_DIR + "/glove.6B", 300)
+    wordToId, idToWord, gloveMat = loadGloveFiles('data')
     # model = Model(FLAGS, wordToId, idToWord, embMat)
     # print(wordToId)
     # print(answers)
@@ -96,7 +106,7 @@ def main(argv):
     # prepare directory for best model
 
     bestDir = os.path.join(FLAGS.train_dir, "best_checkpoint")
-    model = Model(FLAGS, wordToId, idToWord, embMat)
+    model = Model(FLAGS, wordToId, idToWord, gloveMat)
 
     # GPU settings
     config = tf.ConfigProto()
@@ -144,6 +154,7 @@ def main(argv):
             answers = findAnswers(sess, model, wordToId, quesIdSet, contexts, questions)
             with io.open(FLAGS.json_out_path, 'w', encoding='utf-8') as out:
                 out.write(str(json.dumps(answers, ensure_ascii=False)))  
+
     else:
         raise Exception("Given mode does not exist")
 
