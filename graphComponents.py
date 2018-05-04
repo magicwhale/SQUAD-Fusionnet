@@ -35,7 +35,7 @@ def wordLevelFusion(ctxtGlove, qGlove, scopeName):
 		cW = tf.nn.relu(multiplyBatch(ctxtGlove, W))
 		qW = tf.nn.relu(multiplyBatch(qGlove, W))
 		alpha = tf.matmul(cW, tf.transpose(qW, perm=[0, 2, 1]))
-		attention = tf.nn.softmax(alpha, dim=2)
+		attention = tf.nn.softmax(alpha, axis=2)
 		return tf.matmul(attention, qGlove)
 
 def fusion(a, b, applyTo, k, keepProb, scopeName):

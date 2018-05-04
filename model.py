@@ -8,14 +8,15 @@ from tensorflow.python.ops import embedding_ops
 from graphComponents import *
 from batch import *
 from evaluate import f1_score
+from batch import POS_DICT, NER_DICT
 # from keras import backend as K
 
-class Model():
+NUM_POS_TAGS = len(POS_DICT)
+POS_EMB_SIZE = 12
+NUM_NER_TAGS = len(NER_DICT)
+NER_EMB_SIZE = 8
 
-    NUM_POS_TAGS = 21
-    POS_EMB_SIZE = 12
-    NUM_NER_TAGS = 10
-    NER_EMB_SIZE = 8
+class Model():
 
     def __init__(self, FLAGS, wordToId, idToWord, gloveMat, coveMat):
         self.FLAGS = FLAGS
@@ -49,9 +50,9 @@ class Model():
         # self.contextLen = tf.placeholder(tf.int32, shape=())
         # self.qLen = tf.placeholder(tf.int32, shape=())
         self.contextIds = tf.placeholder(tf.int32, shape=[None, None])
-        self.ctxtPosIds = tf.placeholder(tf.int32, shape=[None, None])
-        self.ctxtNerIds = tf.placeholder(tf.int32, shape=[None, None])
-        self.ctxtTFs = tf.placeholder(tf.float32, shape=[None, None])
+        self.contextPosIds = tf.placeholder(tf.int32, shape=[None, None])
+        self.contextNerIds = tf.placeholder(tf.int32, shape=[None, None])
+        self.contextFeatures = tf.placeholder(tf.float32, shape=[None, None])
         self.contextMask = tf.placeholder(tf.int32, shape=[None, None])
 
         self.qIds = tf.placeholder(tf.int32, shape=[None, None])
@@ -73,7 +74,11 @@ class Model():
             self.qCove = embedding_ops.embedding_lookup(coveEmbMatrix, self.qIds)
 
             #21 POS tags
-            # posEmbMatrix = tf.get_variable("posEmbeddings", [NUM_POS_TAGS, POS_EMB_SIZE])
+            posEmbMatrix = tf.get_variable("posEmbeddings", [NUM_POS_TAGS, POS_EMB_SIZE])
+            self.contextPos = embedding_ops.embedding_lookup(posEmbMatrix, self.contextPosIds)
+
+            nerEmbMatrix = tf.get_variable("nerEmbeddings", [NUM_NER_TAGS, NER_EMB_SIZE])
+            self.contextNer = embedding_ops.embedding_lookup(nerEmbMatrix, self.contextNerIds)
 
 
     def addGraph(self):
@@ -81,7 +86,7 @@ class Model():
         # Glove self attention
         gloveSelfAtt = wordLevelFusion(self.contextGlove, self.qGlove, "selfAttGlove")
 
-        contextInput = tf.concat([self.contextGlove, self.contextCove, gloveSelfAtt], axis=-1)
+        contextInput = tf.concat([self.contextGlove, self.contextCove, self.contextPos, self.contextNer, gloveSelfAtt], axis=-1)
 
         # High and low level representation
         lowLevelC = biLSTM(contextInput, self.FLAGS.hidden_size, self.keepProb, "lowLevelC",mask=self.contextMask)
@@ -198,6 +203,8 @@ class Model():
     def trainStep(self, session, batch, summaryWriter):
         inputFeed = {}
         inputFeed[self.contextIds] = batch.contextIds
+        inputFeed[self.contextPosIds] = batch.contextPosIds
+        inputFeed[self.contextNerIds] = batch.contextNerIds
         inputFeed[self.contextMask] = batch.contextMask
         inputFeed[self.qIds] = batch.qIds
         inputFeed[self.qMask] = batch.qMask
@@ -214,6 +221,8 @@ class Model():
     def getProbs(self, session, batch):
         inputFeed = {}
         inputFeed[self.contextIds] = batch.contextIds
+        inputFeed[self.contextPosIds] = batch.contextPosIds
+        inputFeed[self.contextNerIds] = batch.contextNerIds
         inputFeed[self.contextMask] = batch.contextMask
         inputFeed[self.qIds] = batch.qIds
         inputFeed[self.qMask] = batch.qMask
@@ -231,6 +240,8 @@ class Model():
     def getLoss(self, session, batch):
         inputFeed = {}
         inputFeed[self.contextIds] = batch.contextIds
+        inputFeed[self.contextPosIds] = batch.contextPosIds
+        inputFeed[self.contextNerIds] = batch.contextNerIds
         inputFeed[self.contextMask] = batch.contextMask
         inputFeed[self.qIds] = batch.qIds
         inputFeed[self.qMask] = batch.qMask

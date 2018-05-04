@@ -2,15 +2,18 @@
 
 import os
 import json
-import nltk
-from nltk.tokenize.moses import MosesDetokenizer
+# import nltk
+# from nltk.tokenize.moses import MosesDetokenizer
+import spacy
 import pickle
 from random import shuffle
 from pprint import pprint
 import numpy as np
 from batch import generateBatches2
 from batch import UNK_TOK, PAD_TOK
+from batch import POS_DICT, NER_DICT
 from keras.models import load_model
+from collections import Counter
 
 SPECIAL_TOKS = [PAD_TOK, UNK_TOK]
 
@@ -38,27 +41,71 @@ SPECIAL_TOKS = [PAD_TOK, UNK_TOK]
 #     coveModel = load_model('CoVe/Keras_CoVe.h5')
 #     coveEmbeddings = coveModel.
 
+nlp = spacy.load('en_core_web_sm')
+
+def tokensToIds(wordToId, tokens):
+    unkId = wordToId[UNK_TOK]
+    return [wordToId.get(w, unkId) for w in tokens]
+
 def tokenize(string):
-    return [token.replace("``", '"').replace("''", '"').lower() for token in nltk.word_tokenize(string)]
+    return [token.text.replace("``", '"').replace("''", '"') for token in nlp(string)]
+
+def toDoc(string):
+    return nlp(string.replace("``", '"').replace("''", '"'))
 
 def charToWordLoc(string, charNum):
     return len(tokenize(string[:charNum]))
 
-def loadData(inFile, dataName, outDir):
+def getFeatures(contextDoc, qDoc):
+    #Calculate TF
+    cnt = Counter()
+    for token in contextDoc:
+        cnt[token.text.lower()] += 1
+    numTokens = sum(cnt.values())
+    # tf = [cnt[token.text.lower()] / numTokens for token in contextDoc]
+
+    # Get EM features
+    qWords = {token.text for token in qDoc}
+    qLower = {word.lower() for word in qWords}
+    qLemma = {token.lemma_ if token.lemma_ != '-PRON-' else token.text.lower() for token in qDoc}
+
+    features = []
+    for token in contextDoc:
+        tf = cnt[token.text.lower()] / numTokens
+        matchWord = token.text in qWords
+        matchLower = token.text.lower() in qLower
+        matchLemma = (token.lemma_ if token.lemma_ != '-PRON-' else token.text.lower()) in qLemma
+        features.append([tf, matchWord, matchLower, matchLemma])
+
+    return features
+
+
+def loadData(wordToId, inFile, dataName, outDir):
+    nlp = spacy.load('en_core_web_sm')
+
     data = json.load(open(inFile))
     data = data['data']
-    contextTokenList = []
-    questionTokenList = []
-    answerList = []
-    spanList = []
+    contextTokens = []
+    contextIds = []
+    contextPosIds = []
+    contextNerIds = []
+    contextFeatures = []
+    qTokens = []
+    qIds = []
+    aTokens = []
+    aSpans = []
 
     #Load Data into examples list
     for item in data:
         paragraphs = item['paragraphs']
         for par in paragraphs:
-            #process context
+            # process context
             context = str(par['context']) 
-            contextTokens = tokenize(context)
+            contextDoc = toDoc(context)
+            cDocTokens = [token.text.lower() for token in contextDoc]
+            cDocIds = tokensToIds(wordToId, cDocTokens)
+            cDocPosIds = [POS_DICT[token.pos_] for token in contextDoc]
+            cDocNerIds = [NER_DICT[ent.label_] for ent in contextDoc.ents]
 
             # context = context.replace("''", '" ')
             # context = context.replace("``", '" ')
@@ -67,16 +114,38 @@ def loadData(inFile, dataName, outDir):
 
             for qa in qas:
                 q = str(qa['question'])
-                qTokens = tokenize(q)
+                qDoc = toDoc(q)
+                qDocTokens = [token.text.lower() for token in qDoc]
+                qTokens.append(qDocTokens)
+                qIds.append(tokensToIds(wordToId, qDocTokens))
+
+                # process answer
                 a = str(qa['answers'][0]['text']).lower()
                 aStartChar = qa['answers'][0]['answer_start']
                 aStart = charToWordLoc(context, aStartChar)
                 aEnd = aStart + len(tokenize(a)) - 1
+                aTokens.append(cDocTokens[aStart : aEnd + 1])
+                aSpans.append([aStart, aEnd])
 
-                contextTokenList.append(contextTokens)
-                questionTokenList.append(qTokens)
-                answerList.append(a)
-                spanList.append([aStart, aEnd])
+                contextTokens.append(cDocTokens)
+                contextIds.append(cDocIds)
+
+                contextPosIds.append(cDocPosIds)
+                contextNerIds.append(cDocNerIds)
+                contextFeatures.append(getFeatures(contextDoc, qDoc))
+
+    contextData = {
+        'tokens': contextTokens,
+        'ids': contextIds,
+        'posIds': contextPosIds,
+        'nerIds': contextNerIds,
+        'features': contextFeatures
+    }
+
+    questionData = {
+        'tokens': qTokens,
+        'ids': qIds
+    }
 
     #Write examples list to file
     if not os.path.exists(outDir):
@@ -87,10 +156,10 @@ def loadData(inFile, dataName, outDir):
          open(os.path.join(outDir, dataName +'.answer'), 'wb') as answerFile,  \
          open(os.path.join(outDir, dataName +'.span'), 'wb') as spanFile:
         
-        pickle.dump(contextTokenList, contextFile)
-        pickle.dump(questionTokenList, questionFile)
-        pickle.dump(answerList, answerFile)
-        pickle.dump(spanList, spanFile)
+        pickle.dump(contextData, contextFile)
+        pickle.dump(questionData, questionFile)
+        pickle.dump(aTokens, answerFile)
+        pickle.dump(aSpans, spanFile)
 
 
 def loadJsonData(jsonFile):
@@ -195,6 +264,8 @@ def processEmbeddings(gloveDir, gloveDim, outDir):
         pickle.dump(i2w, i2w_file)
         pickle.dump(gloveMat, gloveMat_file)
         pickle.dump(coveMat, coveMat_file)
+
+    return w2i, i2w, gloveMat, coveMat
 # def loadGloveAndCove():
 #     wordToId = {}
 #     idToWord = {}

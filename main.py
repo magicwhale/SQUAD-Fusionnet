@@ -3,6 +3,7 @@ import pickle
 import os
 import json
 import logging
+import spacy
 from load import loadGlove
 from load import extractCtxtQn
 from load import loadJsonData
