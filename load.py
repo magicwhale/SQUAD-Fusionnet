@@ -176,20 +176,25 @@ def loadGlove(gloveDir, gloveDim):
     embMatrix = np.array(embMatrix)
     return wordToId, idToWord, embMatrix
 
-def processGlove(gloveDir, gloveDim, outDir):
-    w2i, i2w, mat = loadGlove(gloveDir, gloveDim)
+def processEmbeddings(gloveDir, gloveDim, outDir):
+    w2i, i2w, gloveMat = loadGlove(gloveDir, gloveDim)
+
+    coveModel = load_model('CoVe/Keras_CoVe.h5')
+    coveEmbs = coveModel.predict(np.expand_dims(gloveMat, axis=0))
+    coveMat = np.squeeze(coveEmbs)
 
     if not os.path.exists(outDir):
         os.makedirs(outDir)
 
     with open(os.path.join(outDir, 'glove.w2i'), 'wb') as w2i_file,  \
          open(os.path.join(outDir, 'glove.i2w'), 'wb') as i2w_file,  \
-         open(os.path.join(outDir, 'glove.embMat'), 'wb') as mat_file:
+         open(os.path.join(outDir, 'glove.embMat'), 'wb') as gloveMat_file, \
+         open(os.path.join(outDir, 'cove.embMat'), 'wb') as coveMat_file:
         
         pickle.dump(w2i, w2i_file)
         pickle.dump(i2w, i2w_file)
-        pickle.dump(mat, mat_file)
-
+        pickle.dump(gloveMat, gloveMat_file)
+        pickle.dump(coveMat, coveMat_file)
 # def loadGloveAndCove():
 #     wordToId = {}
 #     idToWord = {}

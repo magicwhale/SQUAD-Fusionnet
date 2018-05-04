@@ -8,12 +8,16 @@ from tensorflow.python.ops import embedding_ops
 from graphComponents import *
 from batch import *
 from evaluate import f1_score
-from keras.models import load_model
 # from keras import backend as K
 
 class Model():
 
-    def __init__(self, FLAGS, wordToId, idToWord, gloveMat):
+    NUM_POS_TAGS = 21
+    POS_EMB_SIZE = 12
+    NUM_NER_TAGS = 10
+    NER_EMB_SIZE = 8
+
+    def __init__(self, FLAGS, wordToId, idToWord, gloveMat, coveMat):
         self.FLAGS = FLAGS
         self.wordToId = wordToId
         self.idToWord = idToWord
@@ -21,7 +25,7 @@ class Model():
         # Build everything related to the graph
         with tf.variable_scope("model", initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0, uniform=True)):
             self.initPlaceholders()
-            self.addEmbedding(gloveMat)
+            self.addEmbedding(gloveMat, coveMat)
             self.addGraph()
             self.addLoss()
 
@@ -44,32 +48,38 @@ class Model():
         #Context, question, and answer placeholders
         # self.contextLen = tf.placeholder(tf.int32, shape=())
         # self.qLen = tf.placeholder(tf.int32, shape=())
-        self.contextIds = tf.placeholder(tf.int32, shape=[None, None, 300])
+        self.contextIds = tf.placeholder(tf.int32, shape=[None, None])
+        self.ctxtPosIds = tf.placeholder(tf.int32, shape=[None, None])
+        self.ctxtNerIds = tf.placeholder(tf.int32, shape=[None, None])
+        self.ctxtTFs = tf.placeholder(tf.float32, shape=[None, None])
         self.contextMask = tf.placeholder(tf.int32, shape=[None, None])
-        self.qIds = tf.placeholder(tf.int32, shape=[None, None, 300])
+
+        self.qIds = tf.placeholder(tf.int32, shape=[None, None])
         self.qMask = tf.placeholder(tf.int32, shape=[None, None])
         self.aSpans = tf.placeholder(tf.int32, shape=[None, 2])
 
         #Dropout placeholder
         self.keepProb = tf.placeholder_with_default(1.0, shape=())
 
-    def addEmbedding(self, gloveMat):
+    def addEmbedding(self, gloveMat, coveMat):
         with vs.variable_scope("embedding"):
 
             gloveEmbMatrix = tf.constant(gloveMat, dtype=tf.float32, name="gloveMat")
             self.contextGlove = embedding_ops.embedding_lookup(gloveEmbMatrix, self.contextIds)
             self.qGlove = embedding_ops.embedding_lookup(gloveEmbMatrix, self.qIds)
 
-            cCoveModel = load_model('CoVe/Keras_CoVe.h5')
-            cCoveModel.inputs = self.contextGlove
-            self.contextCove = cCoveModel.outputs
-            print(self.contextCove)
-            self.qCove = self.qGlove
+            coveEmbMatrix = tf.constant(coveMat, dtype=tf.float32, name="coveMat")
+            self.contextCove = embedding_ops.embedding_lookup(coveEmbMatrix, self.contextIds)
+            self.qCove = embedding_ops.embedding_lookup(coveEmbMatrix, self.qIds)
+
+            #21 POS tags
+            # posEmbMatrix = tf.get_variable("posEmbeddings", [NUM_POS_TAGS, POS_EMB_SIZE])
+
 
     def addGraph(self):
 
         # Glove self attention
-        gloveSelfAtt = fusion(self.contextGlove, self.qGlove, self.qGlove, self.qGlove.get_shape()[-1], self.keepProb, "selfAttGlove")
+        gloveSelfAtt = wordLevelFusion(self.contextGlove, self.qGlove, "selfAttGlove")
 
         contextInput = tf.concat([self.contextGlove, self.contextCove, gloveSelfAtt], axis=-1)
 
@@ -144,17 +154,31 @@ class Model():
             self.startLogits, self.startProbs = maskLogits(logits, self.contextMask, 1)
 
         with tf.variable_scope("endPos"):
-            gruInput = tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding)
+            gruInput = tf.reduce_sum(tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding), -2)
+            gruInput = tf.expand_dims(gruInput, -2)
+            print(gruInput)
             gruSize = uQ.get_shape().as_list()[-1]
-            out = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU", mask=self.contextMask)
-            # vQT = tf.reshape(out, [-1, tf.shape(out)[-2], tf.shape(out)[-1], 1])
-            # vQT = tf.transpose(tf.expand_dims(out, -1), perm=[0, 1, 3, 2]) #shape: [batchSize, contextLen, 1, 400]
+            vQ = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU")
+            vQ = tf.squeeze(vQ)
+
             d = cUnderstanding.get_shape()[-1]
             W = tf.get_variable("W", shape=(d, d), dtype=tf.float32)
 
-            vQTw = multiplyBatch(out, W) #shape: [batchSize, ]
+            vQT = tf.transpose(tf.expand_dims(vQ, -1), perm=[0, 2, 1]) #shape: [batchSize, 1, d]
+            vQTw = multiplyBatch(vQT, W) #shape: [batchSize, d]
 
-            logits = tf.reduce_sum(tf.multiply(vQTw, cUnderstanding), 2)
+            logits = tf.reduce_sum(tf.multiply(vQTw, cUnderstanding), 2) #shape: []
+            # gruInput = tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding)
+            # gruSize = uQ.get_shape().as_list()[-1]
+            # out = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU", mask=self.contextMask)
+            # # vQT = tf.reshape(out, [-1, tf.shape(out)[-2], tf.shape(out)[-1], 1])
+            # # vQT = tf.transpose(tf.expand_dims(out, -1), perm=[0, 1, 3, 2]) #shape: [batchSize, contextLen, 1, 400]
+            # d = cUnderstanding.get_shape()[-1]
+            # W = tf.get_variable("W", shape=(d, d), dtype=tf.float32)
+
+            # vQTw = multiplyBatch(out, W) #shape: [batchSize, ]
+
+            # logits = tf.reduce_sum(tf.multiply(vQTw, cUnderstanding), 2)
 
             self.endLogits, self.endProbs = maskLogits(logits, self.contextMask, 1)
 

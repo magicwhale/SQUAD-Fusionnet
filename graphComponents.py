@@ -28,6 +28,16 @@ def gruWrapper(initial, inputs, hiddenSize, keepProb, scopeName, mask=None):
 		out = tf.nn.dropout(out, keepProb)
 		return out
 
+def wordLevelFusion(ctxtGlove, qGlove, scopeName):
+	with tf.variable_scope(scopeName):
+		d = ctxtGlove.get_shape()[-1]
+		W = tf.get_variable('W', shape=[d,d], dtype=tf.float32)
+		cW = tf.nn.relu(multiplyBatch(ctxtGlove, W))
+		qW = tf.nn.relu(multiplyBatch(qGlove, W))
+		alpha = tf.matmul(cW, tf.transpose(qW, perm=[0, 2, 1]))
+		attention = tf.nn.softmax(alpha, dim=2)
+		return tf.matmul(attention, qGlove)
+
 def fusion(a, b, applyTo, k, keepProb, scopeName):
 	with tf.variable_scope(scopeName):
 		D = tf.get_variable('D', shape=[k], dtype=tf.float32)
