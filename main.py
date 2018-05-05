@@ -4,6 +4,7 @@ import io
 import os
 import json
 import logging
+import spacy
 from load import loadGlove
 from load import extractCtxtQn
 from load import loadJsonData
@@ -49,15 +50,17 @@ tf.app.flags.DEFINE_string("json_out_path", "predictions.json", "Output path for
 
 FLAGS = tf.app.flags.FLAGS
 
-def loadGloveFiles(dataDir):
+def loadEmbedFiles(dataDir):
     with open(os.path.join(dataDir, 'glove.w2i'), 'rb') as w2i_file,  \
          open(os.path.join(dataDir, 'glove.i2w'), 'rb') as i2w_file,  \
-         open(os.path.join(dataDir, 'glove.embMat'), 'rb') as mat_file:
+         open(os.path.join(dataDir, 'glove.embMat'), 'rb') as gloveMat_file, \
+         open(os.path.join(dataDir, 'cove.embMat'), 'rb') as coveMat_file:
 
         wordToId = pickle.load(w2i_file)
         idToWord = pickle.load(i2w_file)
-        gloveMat = pickle.load(mat_file)
-        return wordToId, idToWord, gloveMat
+        gloveMat = pickle.load(gloveMat_file)
+        coveMat = pickle.load(coveMat_file)
+        return wordToId, idToWord, gloveMat, coveMat
 
 def loadDataFiles(dataDir, dataName):
     with open(os.path.join(dataDir, dataName +'.context'), 'rb') as contextFile,  \
@@ -95,7 +98,7 @@ def main(argv):
     print("loading dev data")
     devContexts, devQuestions, devAnswers, devSpans = loadDataFiles('data', 'dev')
     print("loading glove data")
-    wordToId, idToWord, gloveMat = loadGloveFiles('data')
+    wordToId, idToWord, gloveMat, coveMat = loadEmbedFiles('data')
     # model = Model(FLAGS, wordToId, idToWord, embMat)
     # print(wordToId)
     # print(answers)
@@ -106,7 +109,7 @@ def main(argv):
     # prepare directory for best model
 
     bestDir = os.path.join(FLAGS.train_dir, "best_checkpoint")
-    model = Model(FLAGS, wordToId, idToWord, gloveMat)
+    model = Model(FLAGS, wordToId, idToWord, gloveMat, coveMat)
 
     # GPU settings
     config = tf.ConfigProto()
