@@ -1,8 +1,12 @@
 from load import *
+from main import loadEmbedFiles
 
 print("processing embeddings")
-w2i, _, _, _ = processEmbeddings('data/glove.6B', 300, 'data') 
+processEmbeddings('data/glove.6B', 300, 'data') 
+
+wordToId, idToWord, gloveMat, coveMat = loadEmbedFiles('data')
+
 print("processing training data")
-loadData(w2i, 'train-v1.1.json', 'training', 'data')
+loadData(wordToId, 'train-v1.1.json', 'training', 'data')
 print("processing dev data")
 loadData(w2i, 'dev-v1.1.json', 'dev', 'data')

@@ -104,7 +104,7 @@ def loadData(wordToId, inFile, dataName, outDir):
             cDocTokens = [token.text.lower() for token in contextDoc]
             cDocIds = tokensToIds(wordToId, cDocTokens)
             cDocPosIds = [POS_DICT[token.pos_] for token in contextDoc]
-            cDocNerIds = [NER_DICT[ent.label_] for ent in contextDoc.ents]
+            cDocNerIds = [NER_DICT[token.ent_type_] for token in contextDoc]
 
             # context = context.replace("''", '" ')
             # context = context.replace("``", '" ')
@@ -264,7 +264,6 @@ def processEmbeddings(gloveDir, gloveDim, outDir):
         pickle.dump(gloveMat, gloveMat_file)
         pickle.dump(coveMat, coveMat_file)
 
-    return w2i, i2w, gloveMat, coveMat
 # def loadGloveAndCove():
 #     wordToId = {}
 #     idToWord = {}

@@ -48,16 +48,18 @@ NER_DICT = {
     "MONEY": 15,
     "QUANTITY" : 16,
     "ORDINAL" : 17,
-    "CARDINAL" : 18
+    "CARDINAL" : 18,
+    "": 19
 }
 
 class batch():
-    def __init__(self, contextTokens, contextIds, contextPosIds, contextNerIds, contextMask, qTokens, qIds, qMask, aTokens, aSpans, uuids=None):
+    def __init__(self, contextTokens, contextIds, contextPosIds, contextNerIds, contextFeatures, contextMask, qTokens, qIds, qMask, aTokens, aSpans, uuids=None):
         self.contextIds = contextIds
         self.contextPosIds = contextPosIds
         self.contextNerIds = contextNerIds
         self.contextMask = contextMask
         self.contextTokens = contextTokens
+        self.contextFeatures = contextFeatures
         self.qIds = qIds
         self.qMask = qMask
         self.qTokens = qTokens
@@ -91,12 +93,21 @@ def pad(padId, tokenBatch):
         mask.append([1] * len(tokens) + [0] * (maxLen - len(tokens)))
     return padded, mask
 
+def padFeatures(featureBatch):
+    maxLen = 0
+    for features in featureBatch:
+        maxLen = max(maxLen, len(features))
+    padded = []
+    for features in featureBatch:
+        padded.append(features + [[0, 0, 0, 0]] * (maxLen - len(features)))
+    return padded
+
 def generateBatches(wordToId, contextData, questionData, spans, batchSize):
     contextTokens = contextData['tokens']
     contextIds = contextData['ids']
     contextPos = contextData['posIds']
     contextNer = contextData['nerIds']
-    # contextFeatures = contextData['features']
+    contextFeatures = contextData['features']
 
     qTokens = questionData['tokens']
     qIds = questionData['ids']
@@ -128,7 +139,7 @@ def generateBatches(wordToId, contextData, questionData, spans, batchSize):
             batchCIds.append(contextIds[i])
             batchCPos.append(contextPos[i])
             batchCNer.append(contextNer[i])
-            # batchCFeatures.append(contextFeatures[i])
+            batchCFeatures.append(contextFeatures[i])
 
             batchQTokens.append(qTokens[i])
             batchQIds.append(qIds[i])
@@ -167,16 +178,21 @@ def generateBatches(wordToId, contextData, questionData, spans, batchSize):
         batchCIds, contextMask = pad(padId, batchCIds)
         batchCPos, _ = pad(POS_DICT["PAD"], batchCPos)
         batchCNer, _ = pad(NER_DICT["PAD"], batchCNer)
+        batchCFeatures = padFeatures(batchCFeatures)
         batchQIds, qMask = pad(padId, batchQIds)
 
         #convert everything to np array
         batchCIds = np.array(batchCIds)
         batchCPos = np.array(batchCPos)
         batchCNer = np.array(batchCNer)
+        batchCFeatures = np.array(batchCFeatures).astype(float)
         batchQIds = np.array(batchQIds)
         batchASpans = np.array(batchASpans)
 
-        newBatch = batch(batchCTokens, batchCIds, batchCPos, batchCNer, contextMask, batchQTokens, batchQIds, qMask, batchATokens, batchASpans)
+        print(batchCNer.shape)
+        print(batchCFeatures.shape)
+
+        newBatch = batch(batchCTokens, batchCIds, batchCPos, batchCNer, batchCFeatures, contextMask, batchQTokens, batchQIds, qMask, batchATokens, batchASpans)
         batches.append(newBatch)
 
     return batches

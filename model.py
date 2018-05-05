@@ -1,7 +1,7 @@
 import tensorflow as tf
 import os
-os.environ["KERAS_BACKEND"] = "theano"
-import keras as ks
+# os.environ["KERAS_BACKEND"] = "theano"
+# import keras as ks
 import logging
 from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.ops import embedding_ops
@@ -161,7 +161,6 @@ class Model():
         with tf.variable_scope("endPos"):
             gruInput = tf.reduce_sum(tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding), -2)
             gruInput = tf.expand_dims(gruInput, -2)
-            print(gruInput)
             gruSize = uQ.get_shape().as_list()[-1]
             vQ = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU")
             vQ = tf.squeeze(vQ)
@@ -205,6 +204,8 @@ class Model():
         inputFeed[self.contextIds] = batch.contextIds
         inputFeed[self.contextPosIds] = batch.contextPosIds
         inputFeed[self.contextNerIds] = batch.contextNerIds
+        print("train step")
+        print(batch.contextNerIds.shape)
         inputFeed[self.contextMask] = batch.contextMask
         inputFeed[self.qIds] = batch.qIds
         inputFeed[self.qMask] = batch.qMask
