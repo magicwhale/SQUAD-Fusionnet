@@ -189,7 +189,6 @@ def generateBatches(wordToId, contextData, questionData, spans, batchSize):
         batchQIds = np.array(batchQIds)
         batchASpans = np.array(batchASpans)
 
-        print(batchCNer.shape)
         print(batchCFeatures.shape)
 
         newBatch = batch(batchCTokens, batchCIds, batchCPos, batchCNer, batchCFeatures, contextMask, batchQTokens, batchQIds, qMask, batchATokens, batchASpans)
