@@ -52,7 +52,7 @@ class Model():
         self.contextIds = tf.placeholder(tf.int32, shape=[None, None])
         self.contextPosIds = tf.placeholder(tf.int32, shape=[None, None])
         self.contextNerIds = tf.placeholder(tf.int32, shape=[None, None])
-        self.contextFeatures = tf.placeholder(tf.float32, shape=[None, None])
+        self.contextFeatures = tf.placeholder(tf.float32, shape=[None, None, 4])
         self.contextMask = tf.placeholder(tf.int32, shape=[None, None])
 
         self.qIds = tf.placeholder(tf.int32, shape=[None, None])
@@ -86,7 +86,7 @@ class Model():
         # Glove self attention
         gloveSelfAtt = wordLevelFusion(self.contextGlove, self.qGlove, "selfAttGlove")
 
-        contextInput = tf.concat([self.contextGlove, self.contextCove, self.contextPos, self.contextNer, gloveSelfAtt], axis=-1)
+        contextInput = tf.concat([self.contextGlove, self.contextCove, self.contextPos, self.contextNer, self.contextFeatures, gloveSelfAtt], axis=-1)
 
         # High and low level representation
         lowLevelC = biLSTM(contextInput, self.FLAGS.hidden_size, self.keepProb, "lowLevelC",mask=self.contextMask)
@@ -204,8 +204,7 @@ class Model():
         inputFeed[self.contextIds] = batch.contextIds
         inputFeed[self.contextPosIds] = batch.contextPosIds
         inputFeed[self.contextNerIds] = batch.contextNerIds
-        print("train step")
-        print(batch.contextNerIds.shape)
+        inputFeed[self.contextFeatures] = batch.contextFeatures
         inputFeed[self.contextMask] = batch.contextMask
         inputFeed[self.qIds] = batch.qIds
         inputFeed[self.qMask] = batch.qMask
@@ -224,6 +223,7 @@ class Model():
         inputFeed[self.contextIds] = batch.contextIds
         inputFeed[self.contextPosIds] = batch.contextPosIds
         inputFeed[self.contextNerIds] = batch.contextNerIds
+        inputFeed[self.contextFeatures] = batch.contextFeatures
         inputFeed[self.contextMask] = batch.contextMask
         inputFeed[self.qIds] = batch.qIds
         inputFeed[self.qMask] = batch.qMask
@@ -243,6 +243,7 @@ class Model():
         inputFeed[self.contextIds] = batch.contextIds
         inputFeed[self.contextPosIds] = batch.contextPosIds
         inputFeed[self.contextNerIds] = batch.contextNerIds
+        inputFeed[self.contextFeatures] = batch.contextFeatures        
         inputFeed[self.contextMask] = batch.contextMask
         inputFeed[self.qIds] = batch.qIds
         inputFeed[self.qMask] = batch.qMask
