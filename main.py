@@ -148,12 +148,12 @@ def main(argv):
         if FLAGS.ckpt_load_dir == "":
             raise Exception("Need to specify checkpoint directory")
 
-        data = loadJsonData(FLAGS.json_in_path)
-        quesIdSet, contexts, questions = extractCtxtQn(data)
+        # data = loadJsonData(FLAGS.json_in_path)
+        # quesIdSet, contexts, questions = extractCtxtQn(data)
 
         with tf.Session() as sess:
             loadModel(sess, model, FLAGS.ckpt_load_dir, modelExpected=True)
-            answers = findAnswers(sess, model, wordToId, quesIdSet, contexts, questions)
+            answers = findAnswers(sess, model, wordToId, devContexts, devQuestions)
             with io.open(FLAGS.json_out_path, 'w', encoding='utf-8') as out:
                 out.write(str(json.dumps(answers, ensure_ascii=False)))  
 
