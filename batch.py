@@ -53,7 +53,7 @@ NER_DICT = {
 }
 
 class batch():
-    def __init__(self, contextTokens, contextIds, contextPosIds, contextNerIds, contextFeatures, contextMask, qTokens, qIds, qMask, aTokens, aSpans, uuids=None):
+    def __init__(self, contextTokens, contextIds, contextPosIds, contextNerIds, contextFeatures, contextMask, qTokens, qIds, qMask, aTokens, aSpans, uuids=None, detokens=None):
         self.contextIds = contextIds
         self.contextPosIds = contextPosIds
         self.contextNerIds = contextNerIds
@@ -66,6 +66,7 @@ class batch():
         self.aSpans = aSpans
         self.aTokens = aTokens
         self.uuids = uuids
+        self.detokens = detokens
         self.batchSize = len(self.contextTokens)
 
     # def __init__(self, contextIds, contextMask, contextTokens, qIds, qMask, qTokens, aTokens):
@@ -199,6 +200,7 @@ def generateBatches(wordToId, contextData, questionData, spans, batchSize):
 
 def generateBatches2(wordToId, contextData, questionData, batchSize):
     contextTokens = contextData['tokens']
+    contextDetokens = contextData['detokens']
     contextIds = contextData['ids']
     contextPos = contextData['posIds']
     contextNer = contextData['nerIds']
@@ -214,6 +216,7 @@ def generateBatches2(wordToId, contextData, questionData, batchSize):
 
     for batchStart in range(0, len(shuffledIndices), batchSize):
         batchCTokens = []
+        batchCDetokens = []
         batchCIds = []
         batchCPos = []
         batchCNer = []
@@ -230,6 +233,7 @@ def generateBatches2(wordToId, contextData, questionData, batchSize):
             cTokens = contextTokens[i]
 
             batchCTokens.append(cTokens)
+            batchCDetokens.append(contextDetokens[i])
             batchCIds.append(contextIds[i])
             batchCPos.append(contextPos[i])
             batchCNer.append(contextNer[i])
@@ -257,7 +261,20 @@ def generateBatches2(wordToId, contextData, questionData, batchSize):
 
         print(batchCFeatures.shape)
 
-        newBatch = batch(batchCTokens, batchCIds, batchCPos, batchCNer, batchCFeatures, contextMask, batchQTokens, batchQIds, qMask, None, None, batchQuniqueIds)
+        newBatch = batch(batchCTokens, 
+            batchCIds, 
+            batchCPos, 
+            batchCNer, 
+            batchCFeatures, 
+            contextMask, 
+            batchQTokens, 
+            batchQIds, 
+            qMask, 
+            None, 
+            None, 
+            uuids=batchQuniqueIds,
+            detokens=batchCDetokens)
+
         batches.append(newBatch)
 
     return batches
