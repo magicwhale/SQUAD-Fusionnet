@@ -172,6 +172,7 @@ def loadData2(wordToId, inFile, dataName, outDir):
     contextPosIds = []
     contextNerIds = []
     contextFeatures = []
+    contextDetokens = []
     qTokens = []
     qIds = []
     qUniqueIds = []
@@ -189,6 +190,7 @@ def loadData2(wordToId, inFile, dataName, outDir):
             cDocIds = tokensToIds(wordToId, cDocTokens)
             cDocPosIds = [POS_DICT[token.pos_] for token in contextDoc]
             cDocNerIds = [NER_DICT[token.ent_type_] for token in contextDoc]
+            cDocDetokens = [token.text_with_ws for token in contextDoc]
 
             # context = context.replace("''", '" ')
             # context = context.replace("``", '" ')
@@ -213,7 +215,7 @@ def loadData2(wordToId, inFile, dataName, outDir):
 
                 contextTokens.append(cDocTokens)
                 contextIds.append(cDocIds)
-
+                contextDetokens.append(cDocDetokens)
                 contextPosIds.append(cDocPosIds)
                 contextNerIds.append(cDocNerIds)
                 contextFeatures.append(getFeatures(contextDoc, qDoc))
@@ -223,7 +225,8 @@ def loadData2(wordToId, inFile, dataName, outDir):
         'ids': contextIds,
         'posIds': contextPosIds,
         'nerIds': contextNerIds,
-        'features': contextFeatures
+        'features': contextFeatures,
+        'detokens': contextDetokens
     }
 
     questionData = {
@@ -295,11 +298,12 @@ def findAnswers(session, myModel, wordToId, contextData, questionData):
 
         # Turn model predictions into answer text and save
         for e, (start, end) in enumerate(zip(startBatch, endBatch)):
-            contextTokens = batch.contextTokens[e]
+            contextTokens = batch.detokens[e]
             answerTokens = contextTokens[start:end+1]
 
             uniqueId = batch.uuids[e]
-            idToAns[uniqueId] = detokenizer.detokenize(answerTokens, return_str=True)
+            # idToAns[uniqueId] = detokenizer.detokenize(answerTokens, return_str=True)
+            idToAns[uniqueId] = ''.join(answerTokens)
         b += 1
 
     return idToAns
