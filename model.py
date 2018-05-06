@@ -331,7 +331,7 @@ class Model():
                     logging.info("Saving to %s..." % checkpointPath)
                     self.saver.save(session, checkpointPath, global_step=globalStep)
                 
-                # if globalStep % self.FLAGS.eval_every == 0:
+                if globalStep % self.FLAGS.eval_every == 0:
                     # devLoss = self.getDevLoss(session, contextDev, qDev, spansDev)
                     
                     # print("adding summary")
@@ -344,12 +344,12 @@ class Model():
                     # summary.value.add(tag="train/F1", simple_value=trainF1)
                     # summaryWriter.add_summary(summary, globalStep)
                     
-                    # print("calculating devf1")
-                    # devF1 = self.checkF1(session, contextDev, qDev, spansDev, numSamples=0)
-                    # summary = tf.Summary()
-                    # summary.value.add(tag="dev/F1", simple_value=devF1)
-                    # summaryWriter.add_summary(summary, globalStep)
+                    print("calculating devf1")
+                    devF1 = self.checkF1(session, contextDev, qDev, spansDev, numSamples=0)
+                    summary = tf.Summary()
+                    summary.value.add(tag="dev/F1", simple_value=devF1)
+                    summaryWriter.add_summary(summary, globalStep)
 
-                    # if bestF1 is None or devF1 > bestF1:
-                    #     bestF1 = devF1
-                    #     self.bestmodel_saver.save(session, bestmodelCkptPath, global_step=globalStep)
+                    if bestF1 is None or devF1 > bestF1:
+                        bestF1 = devF1
+                        self.bestmodel_saver.save(session, bestmodelCkptPath, global_step=globalStep)
