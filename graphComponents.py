@@ -66,5 +66,6 @@ def multiplyBatch(batches, tensor):
 def maskLogits(logits, mask, dim):
 	logitMask = (1 - tf.cast(mask, 'float')) * (-1e30)
 	maskedLogits = tf.add(logits, logitMask)
+	maskedLogits = tf.add(maskedLogits, 1e-8)
 	probs = tf.nn.softmax(maskedLogits, dim)
 	return maskedLogits, probs 
