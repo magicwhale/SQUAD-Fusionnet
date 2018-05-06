@@ -161,6 +161,92 @@ def loadData(wordToId, inFile, dataName, outDir):
         pickle.dump(aSpans, spanFile)
 
 
+# also saves ID associated with questions
+def loadData2(wordToId, inFile, dataName, outDir):
+    nlp = spacy.load('en_core_web_sm')
+
+    data = json.load(open(inFile))
+    data = data['data']
+    contextTokens = []
+    contextIds = []
+    contextPosIds = []
+    contextNerIds = []
+    contextFeatures = []
+    qTokens = []
+    qIds = []
+    qUniqueIds = []
+    aTokens = []
+    aSpans = []
+
+    #Load Data into examples list
+    for item in data:
+        paragraphs = item['paragraphs']
+        for par in paragraphs:
+            # process context
+            context = str(par['context']) 
+            contextDoc = toDoc(context)
+            cDocTokens = [token.text.lower() for token in contextDoc]
+            cDocIds = tokensToIds(wordToId, cDocTokens)
+            cDocPosIds = [POS_DICT[token.pos_] for token in contextDoc]
+            cDocNerIds = [NER_DICT[token.ent_type_] for token in contextDoc]
+
+            # context = context.replace("''", '" ')
+            # context = context.replace("``", '" ')
+            # context = context.lower()
+            qas = par['qas']
+
+            for qa in qas:
+                q = str(qa['question'])
+                qDoc = toDoc(q)
+                qDocTokens = [token.text.lower() for token in qDoc]
+                qTokens.append(qDocTokens)
+                qIds.append(tokensToIds(wordToId, qDocTokens))
+                qUniqueIds.append(qa["id"])
+
+                # process answer
+                a = str(qa['answers'][0]['text']).lower()
+                aStartChar = qa['answers'][0]['answer_start']
+                aStart = charToWordLoc(context, aStartChar)
+                aEnd = aStart + len(tokenize(a)) - 1
+                aTokens.append(cDocTokens[aStart : aEnd + 1])
+                aSpans.append([aStart, aEnd])
+
+                contextTokens.append(cDocTokens)
+                contextIds.append(cDocIds)
+
+                contextPosIds.append(cDocPosIds)
+                contextNerIds.append(cDocNerIds)
+                contextFeatures.append(getFeatures(contextDoc, qDoc))
+
+    contextData = {
+        'tokens': contextTokens,
+        'ids': contextIds,
+        'posIds': contextPosIds,
+        'nerIds': contextNerIds,
+        'features': contextFeatures
+    }
+
+    questionData = {
+        'tokens': qTokens,
+        'ids': qIds,
+        'uniqueIds': qUniqueIds
+    }
+
+    #Write examples list to file
+    if not os.path.exists(outDir):
+        os.makedirs(outDir)
+
+    with open(os.path.join(outDir, dataName +'.context'), 'wb') as contextFile,  \
+         open(os.path.join(outDir, dataName +'.question'), 'wb') as questionFile,  \
+         open(os.path.join(outDir, dataName +'.answer'), 'wb') as answerFile,  \
+         open(os.path.join(outDir, dataName +'.span'), 'wb') as spanFile:
+        
+        pickle.dump(contextData, contextFile)
+        pickle.dump(questionData, questionFile)
+        pickle.dump(aTokens, answerFile)
+        pickle.dump(aSpans, spanFile)
+
+
 def loadJsonData(jsonFile):
     with open(jsonFile) as dataFile:
         data = json.load(dataFile)
@@ -193,19 +279,21 @@ def extractCtxtQn(data):
     return quesIdSet, ctxtTokenSet, quesTokenSet
 
                 
-def findAnswers(session, myModel, wordToId, quesIdSet, contexts, questions):
+def findAnswers(session, myModel, wordToId, contextData, questionData):
 
     idToAns = {}  
     b = 0; # batch index  
     detokenizer = MosesDetokenizer()
 
-    batches = generateBatches2(wordToId, quesIdSet, contexts, questions, myModel.FLAGS.batch_size)
+    batches = generateBatches2(wordToId, contextData, questionData, myModel.FLAGS.batch_size)
 
     for batch in batches:
+        # Get model's predictions
         startBatch, endBatch = myModel.getSpans(session, batch)
         startBatch = startBatch.tolist()
         endBatch = endBatch.tolist()
 
+        # Turn model predictions into answer text and save
         for e, (start, end) in enumerate(zip(startBatch, endBatch)):
             contextTokens = batch.contextTokens[e]
             answerTokens = contextTokens[start:end+1]

@@ -8,5 +8,6 @@ wordToId, idToWord, gloveMat, coveMat = loadEmbedFiles('data')
 
 print("processing training data")
 loadData(wordToId, 'train-v1.1.json', 'training', 'data')
+
 print("processing dev data")
-loadData(wordToId, 'dev-v1.1.json', 'dev', 'data')
+loadData2(wordToId, 'dev-v1.1.json', 'dev', 'data')

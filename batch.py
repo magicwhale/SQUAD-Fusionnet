@@ -196,70 +196,137 @@ def generateBatches(wordToId, contextData, questionData, spans, batchSize):
 
     return batches
 
-# This is the same as generateBatches but with no references to span
-def generateBatches2(wordToId, uuids, contexts, questions, batchSize):
+
+def generateBatches2(wordToId, contextData, questionData, batchSize):
+    contextTokens = contextData['tokens']
+    contextIds = contextData['ids']
+    contextPos = contextData['posIds']
+    contextNer = contextData['nerIds']
+    contextFeatures = contextData['features']
+
+    qTokens = questionData['tokens']
+    qIds = questionData['ids']
+    qUniqueIds = questionData['uniqueIds']
+
     batches = []
-    shuffledIndices = np.arange(len(contexts))
+    shuffledIndices = np.arange(len(qTokens))
     np.random.shuffle(shuffledIndices)
 
     for batchStart in range(0, len(shuffledIndices), batchSize):
-        contextTokens = []
-        contextIds = []
-        contextPosIds = []
-        contextNERids = []
-        qTokens = []
-        qIds = []
-        aTokens = []
-        batchUuids = []
+        batchCTokens = []
+        batchCIds = []
+        batchCPos = []
+        batchCNer = []
+        batchCFeatures = []
+
+        batchQTokens = []
+        batchQIds = []
+        batchQuniqueIds = []
+
 
         for n in range(batchStart, min(batchStart + batchSize, len(shuffledIndices))):
             i = shuffledIndices[n]
-            context = contexts[i]
-            question = questions[i]
-            uuid = uuids[i]
 
-            #Get ids from words
-            contextTokens.append(context)
-            contextIds.append(tokensToIds(wordToId, context))
+            cTokens = contextTokens[i]
 
-            # Get pos tokens and convert them to ids
-            nlp = spacy.load('en_core_web_sm')             
-            doc = spacy.tokens.doc.Doc(nlp.vocab, words=context, spaces=[True, False])
-            # run the standard pipeline against it
-            for name, proc in nlp.pipeline:
-                doc = proc(doc)  
-            print(doc.text)
-            for token in doc:
-                print(token.text, token.lemma_, token.pos_, token.tag_, token.dep_,
-                      token.shape_, token.is_alpha, token.is_stop)
-                posTokens.append(token.pos_)
-                contextPosIds.append(POS_DICT[token.pos_])
+            batchCTokens.append(cTokens)
+            batchCIds.append(contextIds[i])
+            batchCPos.append(contextPos[i])
+            batchCNer.append(contextNer[i])
+            batchCFeatures.append(contextFeatures[i])
 
-            # NER
-            for ent in doc.ents:
-                print(ent.text, ent.start_char, ent.end_char, ent.label_)
-                contextNERids.append(NER_DICT[ent.label_])   
+            batchQTokens.append(qTokens[i])
+            batchQIds.append(qIds[i])
+            batchQuniqueIds.append(qUniqueIds[i])
 
-            qTokens.append(question)
-            qIds.append(tokensToIds(wordToId, question))
-
-            batchUuids.append(uuid)
 
         #pad and get masks
         padId = wordToId[PAD_TOK]
-        contextIds, contextMask = pad(padId, contextIds)
-        contextPosIds, contextMask = pad(POS_DICT["PAD"], contextPosIds)
-        contextNERids, contextMask = pad(NER_DICT["PAD"], contextNERids)
-        qIds, qMask = pad(padId, qIds)
+        batchCIds, contextMask = pad(padId, batchCIds)
+        batchCPos, _ = pad(POS_DICT["PAD"], batchCPos)
+        batchCNer, _ = pad(NER_DICT["PAD"], batchCNer)
+        batchCFeatures = padFeatures(batchCFeatures)
+        batchQIds, qMask = pad(padId, batchQIds)
 
         #convert everything to np array
-        contextIds = np.array(contextIds)
-        contextPosIds = np.array(contextPosIds)
-        contextNERids = np.array(contextNERids)
-        qIds = np.array(qIds)
-        # aSpans = np.array(aSpans)
+        batchCIds = np.array(batchCIds)
+        batchCPos = np.array(batchCPos)
+        batchCNer = np.array(batchCNer)
+        batchCFeatures = np.array(batchCFeatures).astype(float)
+        batchQIds = np.array(batchQIds)
 
-        newBatch = batch(contextIds, contextPosIds, contextNERids, contextMask, contextTokens, qIds, qMask, qTokens, None, aTokens, uuids=batchUuids)
+        print(batchCFeatures.shape)
+
+        newBatch = batch(batchCTokens, batchCIds, batchCPos, batchCNer, batchCFeatures, contextMask, batchQTokens, batchQIds, qMask, None, None, batchQuniqueIds)
         batches.append(newBatch)
 
     return batches
+
+
+# # This is the same as generateBatches but with no references to span
+# def generateBatches2(wordToId, uuids, contexts, questions, batchSize):
+#     batches = []
+#     shuffledIndices = np.arange(len(contexts))
+#     np.random.shuffle(shuffledIndices)
+
+#     for batchStart in range(0, len(shuffledIndices), batchSize):
+#         contextTokens = []
+#         contextIds = []
+#         contextPosIds = []
+#         contextNERids = []
+#         qTokens = []
+#         qIds = []
+#         aTokens = []
+#         batchUuids = []
+
+#         for n in range(batchStart, min(batchStart + batchSize, len(shuffledIndices))):
+#             i = shuffledIndices[n]
+#             context = contexts[i]
+#             question = questions[i]
+#             uuid = uuids[i]
+
+#             #Get ids from words
+#             contextTokens.append(context)
+#             contextIds.append(tokensToIds(wordToId, context))
+
+#             # Get pos tokens and convert them to ids
+#             nlp = spacy.load('en_core_web_sm')             
+#             doc = spacy.tokens.doc.Doc(nlp.vocab, words=context, spaces=[True, False])
+#             # run the standard pipeline against it
+#             for name, proc in nlp.pipeline:
+#                 doc = proc(doc)  
+#             print(doc.text)
+#             for token in doc:
+#                 print(token.text, token.lemma_, token.pos_, token.tag_, token.dep_,
+#                       token.shape_, token.is_alpha, token.is_stop)
+#                 posTokens.append(token.pos_)
+#                 contextPosIds.append(POS_DICT[token.pos_])
+
+#             # NER
+#             for ent in doc.ents:
+#                 print(ent.text, ent.start_char, ent.end_char, ent.label_)
+#                 contextNERids.append(NER_DICT[ent.label_])   
+
+#             qTokens.append(question)
+#             qIds.append(tokensToIds(wordToId, question))
+
+#             batchUuids.append(uuid)
+
+#         #pad and get masks
+#         padId = wordToId[PAD_TOK]
+#         contextIds, contextMask = pad(padId, contextIds)
+#         contextPosIds, contextMask = pad(POS_DICT["PAD"], contextPosIds)
+#         contextNERids, contextMask = pad(NER_DICT["PAD"], contextNERids)
+#         qIds, qMask = pad(padId, qIds)
+
+#         #convert everything to np array
+#         contextIds = np.array(contextIds)
+#         contextPosIds = np.array(contextPosIds)
+#         contextNERids = np.array(contextNERids)
+#         qIds = np.array(qIds)
+#         # aSpans = np.array(aSpans)
+
+#         newBatch = batch(contextIds, contextPosIds, contextNERids, contextMask, contextTokens, qIds, qMask, qTokens, None, aTokens, uuids=batchUuids)
+#         batches.append(newBatch)
+
+#     return batches
