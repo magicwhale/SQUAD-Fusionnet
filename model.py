@@ -38,7 +38,7 @@ class Model():
         self.paramNorm = tf.global_norm(params)
 
         self.globalStep = tf.Variable(0, name="globalStep", trainable=False)
-        opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+        opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate, epsilon=FLAGS.learning_epsilon)
         self.updates = opt.apply_gradients(zip(clippedGradients, params), global_step=self.globalStep)
 
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.keep)
@@ -159,30 +159,30 @@ class Model():
             self.startLogits, self.startProbs = maskLogits(logits, self.contextMask, 1)
 
         with tf.variable_scope("endPos"):
-            gruInput = tf.reduce_sum(tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding), -2)
-            gruInput = tf.expand_dims(gruInput, -2)
-            gruSize = uQ.get_shape().as_list()[-1]
-            vQ = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU")
-            vQ = tf.squeeze(vQ)
-
-            d = cUnderstanding.get_shape()[-1]
-            W = tf.get_variable("W", shape=(d, d), dtype=tf.float32)
-
-            vQT = tf.transpose(tf.expand_dims(vQ, -1), perm=[0, 2, 1]) #shape: [batchSize, 1, d]
-            vQTw = multiplyBatch(vQT, W) #shape: [batchSize, d]
-
-            logits = tf.reduce_sum(tf.multiply(vQTw, cUnderstanding), 2) #shape: []
-            # gruInput = tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding)
+            # gruInput = tf.reduce_sum(tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding), -2)
+            # gruInput = tf.expand_dims(gruInput, -2)
             # gruSize = uQ.get_shape().as_list()[-1]
-            # out = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU", mask=self.contextMask)
-            # # vQT = tf.reshape(out, [-1, tf.shape(out)[-2], tf.shape(out)[-1], 1])
-            # # vQT = tf.transpose(tf.expand_dims(out, -1), perm=[0, 1, 3, 2]) #shape: [batchSize, contextLen, 1, 400]
+            # vQ = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU")
+            # vQ = tf.squeeze(vQ)
+
             # d = cUnderstanding.get_shape()[-1]
             # W = tf.get_variable("W", shape=(d, d), dtype=tf.float32)
 
-            # vQTw = multiplyBatch(out, W) #shape: [batchSize, ]
+            # vQT = tf.transpose(tf.expand_dims(vQ, -1), perm=[0, 2, 1]) #shape: [batchSize, 1, d]
+            # vQTw = multiplyBatch(vQT, W) #shape: [batchSize, d]
 
-            # logits = tf.reduce_sum(tf.multiply(vQTw, cUnderstanding), 2)
+            # logits = tf.reduce_sum(tf.multiply(vQTw, cUnderstanding), 2) #shape: []
+            gruInput = tf.multiply(tf.expand_dims(self.startProbs, axis=2), cUnderstanding)
+            gruSize = uQ.get_shape().as_list()[-1]
+            out = gruWrapper(uQ, gruInput, gruSize, self.keepProb, "endPosGRU", mask=self.contextMask)
+            # vQT = tf.reshape(out, [-1, tf.shape(out)[-2], tf.shape(out)[-1], 1])
+            # vQT = tf.transpose(tf.expand_dims(out, -1), perm=[0, 1, 3, 2]) #shape: [batchSize, contextLen, 1, 400]
+            d = cUnderstanding.get_shape()[-1]
+            W = tf.get_variable("W", shape=(d, d), dtype=tf.float32)
+
+            vQTw = multiplyBatch(out, W) #shape: [batchSize, ]
+
+            logits = tf.reduce_sum(tf.multiply(vQTw, cUnderstanding), 2)
 
             self.endLogits, self.endProbs = maskLogits(logits, self.contextMask, 1)
 

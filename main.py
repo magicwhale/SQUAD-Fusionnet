@@ -23,7 +23,8 @@ tf.app.flags.DEFINE_string("experiment_name", "", "Unique name for your experime
 tf.app.flags.DEFINE_integer("num_epochs", 0, "Number of epochs to train. 0 means train indefinitely")
 
 # Hyperparameters
-tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.0005, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_epsilon", 0.001, "Epsilon value for adam optimizer.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
 tf.app.flags.DEFINE_float("dropout", 0.4, "Fraction of units randomly dropped on non-recurrent connections.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use")
