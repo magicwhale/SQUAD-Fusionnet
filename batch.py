@@ -257,8 +257,6 @@ def generateBatches2(wordToId, contextData, questionData, batchSize):
         batchCFeatures = np.array(batchCFeatures).astype(float)
         batchQIds = np.array(batchQIds)
 
-        print(batchCFeatures.shape)
-
         newBatch = batch(batchCTokens, 
             batchCIds, 
             batchCPos, 

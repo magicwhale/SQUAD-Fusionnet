@@ -286,8 +286,6 @@ def findAnswers(session, myModel, wordToId, contextData, questionData):
 
     idToAns = {}  
     b = 0; # batch index  
-    detokenizer = MosesDetokenizer()
-
     batches = generateBatches2(wordToId, contextData, questionData, myModel.FLAGS.batch_size)
 
     for batch in batches:
