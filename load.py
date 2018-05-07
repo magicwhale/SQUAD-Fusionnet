@@ -296,7 +296,6 @@ def findAnswers(session, myModel, wordToId, contextData, questionData):
 
         # Turn model predictions into answer text and save
         for e, (start, end) in enumerate(zip(startBatch, endBatch)):
-            print(end - start)
             contextTokens = batch.detokens[e]
             answerTokens = contextTokens[start:end+1]
 
