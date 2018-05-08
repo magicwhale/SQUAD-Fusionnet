@@ -41,8 +41,8 @@ class Model():
         opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate, epsilon=FLAGS.learning_epsilon)
         self.updates = opt.apply_gradients(zip(clippedGradients, params), global_step=self.globalStep)
 
-        self.saver = tf.train.Saver(tf.trainable_variables(), max_to_keep=FLAGS.keep)
-        self.bestSaver = tf.train.Saver(tf.trainable_variables(), max_to_keep=1)
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.keep)
+        self.bestSaver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
         self.summaries = tf.summary.merge_all()
 
     def initPlaceholders(self):
