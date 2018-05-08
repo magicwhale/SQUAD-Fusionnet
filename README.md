@@ -6,20 +6,47 @@ the paper at https://arxiv.org/abs/1711.07341
 Requirements before running the model:
 
 Dependencies:
+
 python 3.5 - Python 3.5 must be used for CoVe to work
-anaconda   - Used for setting up a python environment	   
+
+anaconda   - Used for setting up a python environment
+
 tensorflow - (this model was trained with 1.7.0)
+
 nltk 	   - can be installed with 'sudo pip install -U nltk'
+
 glove 	   - the glove.6B unzipped directory from https://nlp.stanford.edu/projects/glove/
+
 CoVe       - call git clone https://github.com/rgsachin/CoVe.git in the home directory
+
 spacy      - install with pip install -U spacy
+
 spacy english corpus - install with python -m spacy download en
+
 train data - train-v1.1 from the SQUAD website 
+
 dev data   - dev-v1.1 from the SQUAD website
 
 The 'glove.6B/' directory should be placed in the 'data/' directory
-'train-v1.1.json' and 'dev-v1.1.json' should be placed in the home director.
+'train-v1.1.json' and 'dev-v1.1.json' should be placed in the home directory.
 The 'CoVe' folder from github should be placed in the home directory.
+
+
+Directory Structure:
+
+|-- SQUAD/
+|   |-- data/
+|   |   |-- glove.6B/
+|   |   |   |-- glove.6B.300d.txt
+|   |-- CoVe/
+|   |-- dev-v1.1.json
+|   |-- train-v1.1.json
+|   |-- setup.sh
+|   |-- main.py
+           .
+           .
+           .
+
 
 Setup:
 
