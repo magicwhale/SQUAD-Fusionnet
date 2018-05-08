@@ -5,12 +5,9 @@ source activate fusionnet
 pip install keras
 pip install tensorflow #use tensorflow-gpu if using gpu
 pip install numpy
-pip install nltk
-
-python -m nltk.downloader punkt
-python -m nltk.downloader perluniprops
 
 pip install -U spacy
+python -m spacy download en
 
 git clone https://github.com/rgsachin/CoVe.git
 
