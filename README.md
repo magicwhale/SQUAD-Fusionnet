@@ -41,7 +41,7 @@ This will set up a new Anaconda envirnoment called fusionnet, and start the envi
 
 Additionally, setup.sh should download the necessary dependencies and preprocess and load the SQUAD data into the 'data/' directory.
 
-NOTE: By default, ./setup.sh uses Tensorflow without the gpu. If you are running tensorflow with the gpu, chang 'pip install tensorflow' to 'pip install tensorflow-gpu'
+NOTE: By default, ./setup.sh uses Tensorflow without gpu support. If you are running tensorflow with gpu support, change 'pip install tensorflow' to 'pip install tensorflow-gpu' in 'setup.sh'
 
 
 Training:
