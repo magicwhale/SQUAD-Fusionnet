@@ -96,7 +96,10 @@ To evaluate the accuracy, run
 
 Results:
 
-SQUAD F1 score (after 5500 training steps): 28.128770745337675
+The predicted results for our trained model can be found in the predictions.json file.
+
+SQUAD F1 score (after 25000 training steps): 63.42584912806998
+EM score: 52.82876064333018
 
 Credits:
 The code structure for this project is loosely based on the code found on the Stanford CS224N website, at http://web.stanford.edu/class/cs224n/
